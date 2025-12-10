@@ -21,24 +21,38 @@ export function QRCodeDisplay({ sessionId, className }: QRCodeDisplayProps) {
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      console.log('Current session for QR generation:', session?.access_token ? 'Token present' : 'No token');
+      
+      if (!session?.access_token) {
         toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
+        setIsLoading(false);
         return;
       }
 
+      console.log('Invoking generate-qr with sessionId:', sessionId);
+      
       const { data, error } = await supabase.functions.invoke('generate-qr', {
         body: { sessionId },
       });
 
-      if (error) throw error;
+      console.log('Generate QR response:', { data, error });
+
+      if (error) {
+        console.error('Generate QR error:', error);
+        throw error;
+      }
       
-      setQrData(data.qrData);
-      setExpiresIn(30);
-    } catch (error) {
+      if (data?.qrData) {
+        setQrData(data.qrData);
+        setExpiresIn(30);
+      } else if (data?.error) {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
       console.error('Error generating QR:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate QR code',
+        description: error?.message || 'Failed to generate QR code',
         variant: 'destructive',
       });
     } finally {
