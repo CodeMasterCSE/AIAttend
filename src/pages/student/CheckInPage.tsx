@@ -1,20 +1,17 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { QRScanner } from '@/components/attendance/QRScanner';
 import { FaceCheckIn } from '@/components/attendance/FaceCheckIn';
+import { ProximityCheckIn } from '@/components/attendance/ProximityCheckIn';
 import { ActiveSessionsCard } from '@/components/student/ActiveSessionsCard';
 import { 
   ScanFace, 
-  Camera, 
   QrCode, 
-  Wifi, 
-  CheckCircle2, 
-  Loader2,
+  MapPin, 
   RefreshCw,
-  AlertCircle,
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,6 +24,7 @@ interface SelectedClass {
   code: string;
   room: string;
   sessionId: string;
+  classId: string;
 }
 
 export default function CheckInPage() {
@@ -35,20 +33,10 @@ export default function CheckInPage() {
   const [selectedClass, setSelectedClass] = useState<SelectedClass | null>(null);
   const { toast } = useToast();
 
-  const handleSelectSession = (sessionId: string, classInfo: { subject: string; code: string; room: string }) => {
+  const handleSelectSession = (sessionId: string, classInfo: { subject: string; code: string; room: string; classId: string }) => {
     setSelectedClass({ ...classInfo, sessionId });
     setSelectedMethod('face');
     setStatus('idle');
-  };
-
-  const handleProximityCheckIn = async () => {
-    setStatus('processing');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setStatus('success');
-    toast({
-      title: "Check-in successful!",
-      description: "Proximity verified. You're in range of the classroom.",
-    });
   };
 
   const resetCheckIn = () => {
@@ -61,21 +49,18 @@ export default function CheckInPage() {
       icon: ScanFace, 
       label: 'Face Recognition',
       description: 'Recommended - Quick & secure',
-      color: 'primary',
     },
     { 
       id: 'qr' as CheckInMethod, 
       icon: QrCode, 
       label: 'QR Code',
       description: 'Backup method',
-      color: 'accent',
     },
     { 
       id: 'proximity' as CheckInMethod, 
-      icon: Wifi, 
-      label: 'Proximity',
-      description: 'Bluetooth/WiFi detection',
-      color: 'success',
+      icon: MapPin, 
+      label: 'GPS Proximity',
+      description: 'Location-based verification',
     },
   ];
 
@@ -181,41 +166,18 @@ export default function CheckInPage() {
 
           {/* Proximity */}
           {selectedMethod === 'proximity' && (
-            <div className="p-8 text-center">
-              {status === 'idle' && (
-                <>
-                  <div className="w-48 h-48 mx-auto relative mb-6">
-                    <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
-                    <div className="absolute inset-4 rounded-full border-4 border-primary/30 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
-                    <div className="absolute inset-8 rounded-full border-4 border-primary/40 animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }} />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-20 h-20 rounded-full gradient-bg flex items-center justify-center">
-                        <Wifi className="w-10 h-10 text-primary-foreground" />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground mb-4">Detecting classroom proximity...</p>
-                  <Button variant="gradient" size="lg" onClick={handleProximityCheckIn}>
-                    <Wifi className="w-5 h-5 mr-2" />
-                    Verify Proximity
-                  </Button>
-                </>
-              )}
-
-              {status === 'processing' && (
-                <div className="py-12">
-                  <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin mb-4" />
-                  <p className="text-muted-foreground">Scanning for classroom signal...</p>
-                </div>
-              )}
-
-              {status === 'success' && (
-                <div className="py-12">
-                  <div className="w-24 h-24 mx-auto rounded-full bg-success/20 flex items-center justify-center mb-4 animate-scale-in">
-                    <CheckCircle2 className="w-12 h-12 text-success" />
-                  </div>
-                  <h3 className="text-xl font-bold text-success mb-2">Check-in Successful!</h3>
-                  <p className="text-muted-foreground">Proximity verified - You're in Room 301</p>
+            <div className="p-8">
+              {selectedClass ? (
+                <ProximityCheckIn
+                  sessionId={selectedClass.sessionId}
+                  classId={selectedClass.classId}
+                  classRoom={selectedClass.room}
+                  onSuccess={() => setStatus('success')}
+                />
+              ) : (
+                <div className="text-center py-12">
+                  <MapPin className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Select an active session above to check in with GPS proximity</p>
                 </div>
               )}
             </div>

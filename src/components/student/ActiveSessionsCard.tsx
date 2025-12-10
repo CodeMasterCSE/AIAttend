@@ -6,7 +6,7 @@ import { Loader2, Radio, Clock, MapPin, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ActiveSessionsCardProps {
-  onSelectSession?: (sessionId: string, classInfo: { subject: string; code: string; room: string }) => void;
+  onSelectSession?: (sessionId: string, classInfo: { subject: string; code: string; room: string; classId: string }) => void;
   className?: string;
 }
 
@@ -102,6 +102,7 @@ export function ActiveSessionsCard({ onSelectSession, className }: ActiveSession
                     subject: session.classes?.subject || 'Unknown',
                     code: session.classes?.code || '',
                     room: session.classes?.room || '',
+                    classId: session.class_id,
                   })}
                 >
                   <QrCode className="w-4 h-4 mr-1" />

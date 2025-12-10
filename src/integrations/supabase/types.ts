@@ -176,7 +176,10 @@ export type Database = {
           created_at: string
           department: string
           id: string
+          latitude: number | null
+          longitude: number | null
           professor_id: string
+          proximity_radius_meters: number | null
           room: string
           semester: string
           subject: string
@@ -187,7 +190,10 @@ export type Database = {
           created_at?: string
           department: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           professor_id: string
+          proximity_radius_meters?: number | null
           room: string
           semester: string
           subject: string
@@ -198,7 +204,10 @@ export type Database = {
           created_at?: string
           department?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           professor_id?: string
+          proximity_radius_meters?: number | null
           room?: string
           semester?: string
           subject?: string
