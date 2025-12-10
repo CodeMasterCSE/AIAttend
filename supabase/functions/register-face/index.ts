@@ -42,6 +42,21 @@ serve(async (req) => {
 
     console.log('Extracting face features for user:', user.id);
 
+    // Extract base64 data without the data URL prefix
+    let base64Data = imageBase64;
+    let mimeType = 'image/jpeg';
+    
+    if (imageBase64.startsWith('data:')) {
+      const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        base64Data = matches[2];
+      }
+    }
+
+    console.log('Image MIME type:', mimeType);
+    console.log('Base64 data length:', base64Data.length);
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -81,7 +96,7 @@ Return ONLY valid JSON, no markdown or explanation.`
               {
                 type: 'image_url',
                 image_url: {
-                  url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
+                  url: `data:${mimeType};base64,${base64Data}`
                 }
               }
             ]

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
@@ -14,19 +14,46 @@ export function FaceRegistration({ onSuccess }: FaceRegistrationProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
+      setCameraReady(false);
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 640, height: 480 }
+        video: { 
+          facingMode: 'user', 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 } 
+        }
       });
+      
       streamRef.current = stream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().then(() => {
+            setCameraReady(true);
+          }).catch(err => {
+            console.error('Video play error:', err);
+            toast.error('Could not start video playback');
+          });
+        };
       }
+      
       setIsCapturing(true);
       setCapturedImage(null);
       setStatus('idle');
@@ -41,21 +68,41 @@ export function FaceRegistration({ onSuccess }: FaceRegistrationProps) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setIsCapturing(false);
+    setCameraReady(false);
   }, []);
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      toast.error('Camera not ready. Please try again.');
+      return;
+    }
     
-    const canvas = canvasRef.current;
     const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Ensure video has valid dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      toast.error('Camera not ready yet. Please wait a moment.');
+      return;
+    }
+    
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      // Mirror the image horizontally for selfie view
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+      
+      const imageData = canvas.toDataURL('image/jpeg', 0.9);
+      console.log('Captured image data length:', imageData.length);
       setCapturedImage(imageData);
       stopCamera();
     }
@@ -131,13 +178,21 @@ export function FaceRegistration({ onSuccess }: FaceRegistrationProps) {
       <CardContent className="space-y-4">
         <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
           {isCapturing ? (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
+              {!cameraReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </>
           ) : capturedImage ? (
             <img
               src={capturedImage}
@@ -191,8 +246,8 @@ export function FaceRegistration({ onSuccess }: FaceRegistrationProps) {
           
           {isCapturing && (
             <>
-              <Button onClick={capturePhoto} className="flex-1">
-                Capture Photo
+              <Button onClick={capturePhoto} className="flex-1" disabled={!cameraReady}>
+                {cameraReady ? 'Capture Photo' : 'Loading...'}
               </Button>
               <Button variant="outline" onClick={stopCamera}>
                 Cancel
