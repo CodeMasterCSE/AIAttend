@@ -5,15 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   ScanFace, 
   Calendar, 
   CheckCircle2, 
-  Clock, 
   BookOpen,
   TrendingUp,
   ArrowRight,
-  MapPin,
   Camera,
   AlertCircle,
 } from 'lucide-react';
@@ -27,49 +26,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-
-const attendanceData = [
-  { week: 'W1', attendance: 95 },
-  { week: 'W2', attendance: 88 },
-  { week: 'W3', attendance: 92 },
-  { week: 'W4', attendance: 100 },
-  { week: 'W5', attendance: 85 },
-  { week: 'W6', attendance: 90 },
-];
-
-const upcomingClasses = [
-  {
-    id: '1',
-    subject: 'No upcoming classes',
-    code: '--',
-    time: '--',
-    room: '--',
-    status: 'upcoming',
-  },
-];
-
-const recentAttendance = [
-  { subject: 'No recent attendance', date: '--', status: 'present', method: 'face' },
-];
+import { useStudentStats } from '@/hooks/useStudentStats';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [faceRegistered, setFaceRegistered] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkFaceRegistration = async () => {
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('face_embedding')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      setFaceRegistered(!!data?.face_embedding);
-    };
-    checkFaceRegistration();
-  }, [user?.id]);
+  const { courses, stats, weeklyData, isLoading, faceRegistered } = useStudentStats();
 
   return (
     <DashboardLayout>
@@ -121,7 +82,13 @@ export default function StudentDashboard() {
                   </Badge>
                 )}
               </div>
-              <p className="text-muted-foreground">Ready for today's classes? Your attendance is looking great!</p>
+              <p className="text-muted-foreground">
+                {stats.overallAttendance >= 75 
+                  ? "Your attendance is looking great!" 
+                  : stats.overallAttendance > 0 
+                    ? "Keep up with your attendance!" 
+                    : "Ready for today's classes?"}
+              </p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -145,57 +112,102 @@ export default function StudentDashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Overall Attendance"
-            value="--%"
-            subtitle="This semester"
-            icon={TrendingUp}
-            variant="primary"
-          />
-          <StatsCard
-            title="Classes Today"
-            value="--"
-            subtitle="Check schedule"
-            icon={Calendar}
-            variant="default"
-          />
-          <StatsCard
-            title="Present Days"
-            value="--"
-            subtitle="This semester"
-            icon={CheckCircle2}
-            variant="success"
-          />
-          <StatsCard
-            title="Enrolled Courses"
-            value="--"
-            subtitle="Active courses"
-            icon={BookOpen}
-            variant="accent"
-          />
+          {isLoading ? (
+            <>
+              <Skeleton className="h-28 rounded-2xl" />
+              <Skeleton className="h-28 rounded-2xl" />
+              <Skeleton className="h-28 rounded-2xl" />
+              <Skeleton className="h-28 rounded-2xl" />
+            </>
+          ) : (
+            <>
+              <StatsCard
+                title="Overall Attendance"
+                value={`${stats.overallAttendance}%`}
+                subtitle="This semester"
+                icon={TrendingUp}
+                variant="primary"
+              />
+              <StatsCard
+                title="Classes Today"
+                value={stats.todayClasses.toString()}
+                subtitle="Scheduled"
+                icon={Calendar}
+                variant="default"
+              />
+              <StatsCard
+                title="Present Days"
+                value={stats.totalPresent.toString()}
+                subtitle={`of ${stats.totalSessions} sessions`}
+                icon={CheckCircle2}
+                variant="success"
+              />
+              <StatsCard
+                title="Enrolled Courses"
+                value={stats.enrolledCourses.toString()}
+                subtitle="Active courses"
+                icon={BookOpen}
+                variant="accent"
+              />
+            </>
+          )}
         </div>
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Upcoming Classes */}
+          {/* Enrolled Courses & Attendance Chart */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Enrolled Courses */}
             <div className="rounded-2xl border border-border bg-card p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="font-semibold text-lg">Today's Schedule</h3>
-                  <p className="text-sm text-muted-foreground">Your upcoming classes</p>
+                  <h3 className="font-semibold text-lg">Enrolled Courses</h3>
+                  <p className="text-sm text-muted-foreground">Your course attendance breakdown</p>
                 </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/student/schedule">View all</Link>
-                </Button>
               </div>
 
-              <div className="space-y-4">
-                <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No classes scheduled for today</p>
+              {isLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-16 rounded-xl" />
+                  <Skeleton className="h-16 rounded-xl" />
+                  <Skeleton className="h-16 rounded-xl" />
                 </div>
-              </div>
+              ) : courses.length > 0 ? (
+                <div className="space-y-4">
+                  {courses.map((course) => (
+                    <div key={course.id} className="p-4 rounded-xl border border-border bg-background/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">{course.subject}</h4>
+                          <p className="text-sm text-muted-foreground">{course.code} • {course.room}</p>
+                        </div>
+                        <Badge 
+                          variant={course.attendancePercentage >= 75 ? "default" : "destructive"}
+                          className={course.attendancePercentage >= 75 ? "bg-green-500/10 text-green-600 border-green-500/30" : ""}
+                        >
+                          {course.attendancePercentage}%
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{course.attendedSessions} of {course.totalSessions} sessions attended</span>
+                          <span>{course.attendancePercentage >= 75 ? "Good standing" : "Needs attention"}</span>
+                        </div>
+                        <Progress 
+                          value={course.attendancePercentage} 
+                          className="h-2"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>You're not enrolled in any courses yet</p>
+                  <p className="text-sm mt-1">Contact your professor to get enrolled</p>
+                </div>
+              )}
             </div>
 
             {/* Attendance Chart */}
@@ -208,7 +220,7 @@ export default function StudentDashboard() {
               </div>
               <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={attendanceData}>
+                  <AreaChart data={weeklyData}>
                     <defs>
                       <linearGradient id="attendanceGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -217,13 +229,14 @@ export default function StudentDashboard() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[70, 100]} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--card))', 
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                       }}
+                      formatter={(value: number) => [`${value}%`, 'Attendance']}
                     />
                     <Area 
                       type="monotone" 
@@ -240,27 +253,75 @@ export default function StudentDashboard() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Course Progress */}
+            {/* Quick Stats */}
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="font-semibold text-lg mb-4">Course Progress</h3>
-              <div className="text-center py-8 text-muted-foreground">
-                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Enroll in courses to see progress</p>
-              </div>
+              <h3 className="font-semibold text-lg mb-4">Attendance Summary</h3>
+              {isLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 rounded-lg" />
+                  <Skeleton className="h-12 rounded-lg" />
+                </div>
+              ) : stats.totalSessions > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-sm">Present</span>
+                    </div>
+                    <span className="font-semibold text-green-600">{stats.totalPresent}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      <span className="text-sm">Absent</span>
+                    </div>
+                    <span className="font-semibold text-red-600">{stats.totalSessions - stats.totalPresent}</span>
+                  </div>
+                  <div className="pt-2 border-t border-border">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Sessions</span>
+                      <span className="font-medium">{stats.totalSessions}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No attendance data yet</p>
+                </div>
+              )}
             </div>
 
-            {/* Recent Attendance */}
+            {/* Course Status */}
             <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Recent Activity</h3>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/student/history">View all</Link>
-                </Button>
-              </div>
-              <div className="text-center py-8 text-muted-foreground">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">No recent attendance records</p>
-              </div>
+              <h3 className="font-semibold text-lg mb-4">Course Status</h3>
+              {isLoading ? (
+                <Skeleton className="h-24 rounded-lg" />
+              ) : courses.length > 0 ? (
+                <div className="space-y-3">
+                  {courses.slice(0, 3).map((course) => (
+                    <div key={course.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${course.attendancePercentage >= 75 ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-sm truncate max-w-[120px]">{course.code}</span>
+                      </div>
+                      <span className={`text-sm font-medium ${course.attendancePercentage >= 75 ? 'text-green-600' : 'text-red-600'}`}>
+                        {course.attendancePercentage}%
+                      </span>
+                    </div>
+                  ))}
+                  {courses.length > 3 && (
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      +{courses.length - 3} more courses
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No courses enrolled</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
