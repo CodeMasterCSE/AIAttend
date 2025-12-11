@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.verify-face]
 verify_jwt = true
+
+[functions.verify-proximity]
+verify_jwt = true

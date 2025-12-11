@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -33,52 +33,13 @@ interface LocationState {
   error?: string;
 }
 
-interface ClassLocation {
-  latitude: number | null;
-  longitude: number | null;
-  proximity_radius_meters: number | null;
-}
-
 export function ProximityCheckIn({ sessionId, classId, classRoom, onSuccess }: ProximityCheckInProps) {
   const [location, setLocation] = useState<LocationState>({ status: 'idle' });
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'already_checked_in' | 'failed'>('idle');
-  const [classLocation, setClassLocation] = useState<ClassLocation | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
+  const [allowedRadius, setAllowedRadius] = useState<number>(50);
   const { user } = useAuth();
   const { toast } = useToast();
-
-  // Fetch class location on mount
-  useEffect(() => {
-    const fetchClassLocation = async () => {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('latitude, longitude, proximity_radius_meters')
-        .eq('id', classId)
-        .single();
-
-      if (!error && data) {
-        setClassLocation(data);
-      }
-    };
-
-    fetchClassLocation();
-  }, [classId]);
-
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
-  };
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
@@ -129,108 +90,72 @@ export function ProximityCheckIn({ sessionId, classId, classRoom, onSuccess }: P
     setVerificationStatus('verifying');
 
     try {
-      // Check if class has location configured
-      if (!classLocation?.latitude || !classLocation?.longitude) {
-        // If no classroom location configured, allow check-in with warning
-        toast({
-          title: "Location not configured",
-          description: "Classroom location not set. Check-in allowed based on your GPS coordinates.",
-          variant: "default",
-        });
+      // Call the verify-proximity edge function for server-side validation
+      const { data, error } = await supabase.functions.invoke('verify-proximity', {
+        body: {
+          sessionId,
+          classId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+        },
+      });
 
-        // Record attendance with proximity method
-        const { error } = await supabase.from('attendance_records').insert({
-          session_id: sessionId,
-          class_id: classId,
-          student_id: user.id,
-          method_used: 'proximity',
-          status: 'present',
-          verification_score: location.accuracy ? Math.max(0, 100 - location.accuracy) / 100 : 0.5,
-        });
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Verification failed');
+      }
 
-        if (error) {
-          if (error.code === '23505') {
-            setVerificationStatus('already_checked_in');
-            toast({
-              title: "Already Checked In",
-              description: "Your attendance was already recorded for this session.",
-            });
-            onSuccess?.();
-          } else {
-            throw error;
-          }
-          return;
+      // Handle response from edge function
+      if (data.error) {
+        // Check if it's a distance error
+        if (data.distance !== undefined && data.allowedRadius !== undefined) {
+          setDistance(data.distance);
+          setAllowedRadius(data.allowedRadius);
+          setVerificationStatus('failed');
+          toast({
+            title: "Too far from classroom",
+            description: `You are ${data.distance}m away. Must be within ${data.allowedRadius}m of ${data.room || classRoom}.`,
+            variant: "destructive",
+          });
+        } else if (data.error === 'You are not enrolled in this class') {
+          setVerificationStatus('failed');
+          toast({
+            title: "Not Enrolled",
+            description: "You are not enrolled in this class.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
         }
-
-        setVerificationStatus('success');
-        toast({
-          title: "Check-in Successful!",
-          description: "Your attendance has been recorded.",
-        });
-        onSuccess?.();
         return;
       }
 
-      // Calculate distance from classroom
-      const distanceMeters = calculateDistance(
-        location.latitude,
-        location.longitude,
-        classLocation.latitude,
-        classLocation.longitude
-      );
-
-      setDistance(distanceMeters);
-
-      const allowedRadius = classLocation.proximity_radius_meters || 50;
-      const isWithinRange = distanceMeters <= allowedRadius;
-
-      if (isWithinRange) {
-        // Record attendance
-        const verificationScore = Math.max(0, (allowedRadius - distanceMeters) / allowedRadius);
-        
-        const { error } = await supabase.from('attendance_records').insert({
-          session_id: sessionId,
-          class_id: classId,
-          student_id: user.id,
-          method_used: 'proximity',
-          status: 'present',
-          verification_score: verificationScore,
+      // Success or already checked in
+      if (data.alreadyCheckedIn) {
+        setVerificationStatus('already_checked_in');
+        toast({
+          title: "Already Checked In",
+          description: "Your attendance was already recorded for this session.",
         });
-
-        if (error) {
-          if (error.code === '23505') {
-            setVerificationStatus('already_checked_in');
-            toast({
-              title: "Already Checked In",
-              description: "Your attendance was already recorded for this session.",
-            });
-            onSuccess?.();
-          } else {
-            throw error;
-          }
-          return;
+      } else {
+        if (data.distance !== null) {
+          setDistance(data.distance);
         }
-
         setVerificationStatus('success');
         toast({
           title: "Check-in Successful!",
-          description: `You are ${Math.round(distanceMeters)}m from ${classRoom}. Attendance recorded.`,
-        });
-        onSuccess?.();
-      } else {
-        setVerificationStatus('failed');
-        toast({
-          title: "Too far from classroom",
-          description: `You are ${Math.round(distanceMeters)}m away. Must be within ${allowedRadius}m of ${classRoom}.`,
-          variant: "destructive",
+          description: data.message || "Your attendance has been recorded.",
         });
       }
+      onSuccess?.();
+
     } catch (error) {
       console.error('Proximity verification error:', error);
       setVerificationStatus('failed');
       toast({
         title: "Verification failed",
-        description: "Unable to verify your proximity. Please try again.",
+        description: error instanceof Error ? error.message : "Unable to verify your proximity. Please try again.",
         variant: "destructive",
       });
     }
@@ -369,7 +294,7 @@ export function ProximityCheckIn({ sessionId, classId, classRoom, onSuccess }: P
             <p className="text-muted-foreground text-sm">
               You are {Math.round(distance)}m from the classroom.
               <br />
-              Must be within {classLocation?.proximity_radius_meters || 50}m to check in.
+              Must be within {allowedRadius}m to check in.
             </p>
           </>
         )}
