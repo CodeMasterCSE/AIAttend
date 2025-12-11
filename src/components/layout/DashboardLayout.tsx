@@ -21,23 +21,25 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   ScanFace,
   GraduationCap,
   UserCog,
   BarChart3,
   PlayCircle,
   History,
+  Calendar,
 } from 'lucide-react';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-// Student: 4 items - Dashboard, Check In, My Classes, Attendance
+// Student: 5 items - Dashboard, Check In, Timetable, My Classes, Attendance
 const studentNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/student' },
   { icon: ScanFace, label: 'Check In', path: '/student/check-in' },
+  { icon: Calendar, label: 'Timetable', path: '/student/timetable' },
   { icon: BookOpen, label: 'My Classes', path: '/student/classes' },
   { icon: History, label: 'Attendance', path: '/student/attendance' },
 ];
@@ -98,10 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
           <span className="font-bold text-lg">AttendEase</span>
         </Link>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-        </Button>
+        <NotificationCenter />
       </header>
 
       {/* Sidebar */}
@@ -177,10 +176,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-            </Button>
+            <NotificationCenter />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 p-2 rounded-xl hover:bg-secondary transition-colors">

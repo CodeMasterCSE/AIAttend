@@ -14,6 +14,7 @@ import CheckInPage from "./pages/student/CheckInPage";
 import FaceRegistrationPage from "./pages/student/FaceRegistrationPage";
 import ClassesPage from "./pages/student/ClassesPage";
 import AttendanceHistoryPage from "./pages/student/AttendanceHistoryPage";
+import TimetablePage from "./pages/student/TimetablePage";
 import ProfessorDashboard from "./pages/professor/ProfessorDashboard";
 import SessionsPage from "./pages/professor/SessionsPage";
 import ClassManagementPage from "./pages/professor/ClassManagementPage";
@@ -102,6 +103,7 @@ function AppRoutes() {
       <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard /></ProtectedRoute>} />
       <Route path="/student/check-in" element={<ProtectedRoute allowedRoles={['student']}><CheckInPage /></ProtectedRoute>} />
       <Route path="/student/face-registration" element={<ProtectedRoute allowedRoles={['student']}><FaceRegistrationPage /></ProtectedRoute>} />
+      <Route path="/student/timetable" element={<ProtectedRoute allowedRoles={['student']}><TimetablePage /></ProtectedRoute>} />
       <Route path="/student/classes" element={<ProtectedRoute allowedRoles={['student']}><ClassesPage /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute allowedRoles={['student']}><AttendanceHistoryPage /></ProtectedRoute>} />
       <Route path="/student/profile" element={<ProtectedRoute allowedRoles={['student']}><ProfilePage /></ProtectedRoute>} />

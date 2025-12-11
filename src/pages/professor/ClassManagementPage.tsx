@@ -47,6 +47,8 @@ import {
   KeyRound,
   Copy,
 } from 'lucide-react';
+import { BulkStudentImport } from '@/components/professor/BulkStudentImport';
+import { ScheduleManager } from '@/components/professor/ScheduleManager';
 
 export default function ClassManagementPage() {
   const { classes, isLoading: classesLoading, createClass, updateClass, refreshClasses } = useClasses();
@@ -333,7 +335,8 @@ export default function ClassManagementPage() {
                         {selectedClass.subject} ({selectedClass.code})
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <ScheduleManager classId={selectedClass.id} className={selectedClass.subject} />
                       <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
                         <DialogTrigger asChild>
                           <Button size="sm" variant="outline">
@@ -356,6 +359,14 @@ export default function ClassManagementPage() {
                           />
                         </DialogContent>
                       </Dialog>
+                      <BulkStudentImport 
+                        classId={selectedClass.id} 
+                        className={selectedClass.subject}
+                        onSuccess={() => {
+                          // Refresh enrollments by re-selecting the class
+                          setSelectedClass({ ...selectedClass });
+                        }}
+                      />
                       <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
                         <DialogTrigger asChild>
                           <Button size="sm">

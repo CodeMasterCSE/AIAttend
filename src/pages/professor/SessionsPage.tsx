@@ -23,6 +23,8 @@ import {
   Loader2,
   MapPin,
 } from 'lucide-react';
+import { BulkAttendanceMarking } from '@/components/professor/BulkAttendanceMarking';
+import { ScheduledSessionStarter } from '@/components/professor/ScheduledSessionStarter';
 
 export default function QRSessionsPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -144,7 +146,10 @@ export default function QRSessionsPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+        {/* Scheduled Sessions Quick Start */}
+        <ScheduledSessionStarter onSessionStarted={refreshSessions} />
+
         {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
@@ -250,6 +255,12 @@ export default function QRSessionsPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    <BulkAttendanceMarking
+                      classId={selectedClassId}
+                      sessionId={activeSession.id}
+                      className={`${selectedClass?.subject} (${selectedClass?.code})`}
+                      onSuccess={refreshSessions}
+                    />
                     <Button 
                       onClick={handleUpdateLocation} 
                       variant="outline"
