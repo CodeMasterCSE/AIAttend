@@ -19,6 +19,11 @@ import SessionsPage from "./pages/professor/SessionsPage";
 import ClassManagementPage from "./pages/professor/ClassManagementPage";
 import AttendanceReportsPage from "./pages/professor/AttendanceReportsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import StudentsPage from "./pages/admin/StudentsPage";
+import FacultyPage from "./pages/admin/FacultyPage";
+import AdminClassesPage from "./pages/admin/ClassesPage";
+import AnalyticsPage from "./pages/admin/AnalyticsPage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -99,19 +104,22 @@ function AppRoutes() {
       <Route path="/student/face-registration" element={<ProtectedRoute allowedRoles={['student']}><FaceRegistrationPage /></ProtectedRoute>} />
       <Route path="/student/classes" element={<ProtectedRoute allowedRoles={['student']}><ClassesPage /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute allowedRoles={['student']}><AttendanceHistoryPage /></ProtectedRoute>} />
+      <Route path="/student/profile" element={<ProtectedRoute allowedRoles={['student']}><ProfilePage /></ProtectedRoute>} />
 
       {/* Professor Routes */}
       <Route path="/professor" element={<ProtectedRoute allowedRoles={['professor']}><ProfessorDashboard /></ProtectedRoute>} />
       <Route path="/professor/sessions" element={<ProtectedRoute allowedRoles={['professor']}><SessionsPage /></ProtectedRoute>} />
       <Route path="/professor/classes" element={<ProtectedRoute allowedRoles={['professor']}><ClassManagementPage /></ProtectedRoute>} />
       <Route path="/professor/reports" element={<ProtectedRoute allowedRoles={['professor']}><AttendanceReportsPage /></ProtectedRoute>} />
+      <Route path="/professor/profile" element={<ProtectedRoute allowedRoles={['professor']}><ProfilePage /></ProtectedRoute>} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/students" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/faculty" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/students" element={<ProtectedRoute allowedRoles={['admin']}><StudentsPage /></ProtectedRoute>} />
+      <Route path="/admin/faculty" element={<ProtectedRoute allowedRoles={['admin']}><FacultyPage /></ProtectedRoute>} />
+      <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={['admin']}><AdminClassesPage /></ProtectedRoute>} />
+      <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AnalyticsPage /></ProtectedRoute>} />
+      <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={['admin']}><ProfilePage /></ProtectedRoute>} />
 
       {/* 404 */}
       <Route path="*" element={<NotFound />} />

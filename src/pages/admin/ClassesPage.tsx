@@ -1,0 +1,261 @@
+import { useState, useEffect } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { supabase } from '@/integrations/supabase/client';
+import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface ClassData {
+  id: string;
+  subject: string;
+  code: string;
+  department: string;
+  semester: string;
+  room: string;
+  join_code: string;
+  professor_id: string;
+  created_at: string;
+  professor_name?: string;
+  enrollment_count?: number;
+}
+
+export default function AdminClassesPage() {
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
+  const fetchClasses = async () => {
+    try {
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (classesError) throw classesError;
+
+      if (classesData && classesData.length > 0) {
+        // Get professor names
+        const professorIds = [...new Set(classesData.map(c => c.professor_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, name')
+          .in('user_id', professorIds);
+
+        const professorMap = (profilesData || []).reduce((acc, p) => {
+          acc[p.user_id] = p.name;
+          return acc;
+        }, {} as Record<string, string>);
+
+        // Get enrollment counts
+        const { data: enrollmentsData } = await supabase
+          .from('class_enrollments')
+          .select('class_id');
+
+        const enrollmentCounts = (enrollmentsData || []).reduce((acc, e) => {
+          acc[e.class_id] = (acc[e.class_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const classesWithDetails = classesData.map(cls => ({
+          ...cls,
+          professor_name: professorMap[cls.professor_id] || 'Unknown',
+          enrollment_count: enrollmentCounts[cls.id] || 0
+        }));
+
+        setClasses(classesWithDetails);
+      } else {
+        setClasses([]);
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      toast({ title: 'Error', description: 'Failed to fetch classes', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredClasses = classes.filter(cls =>
+    cls.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    cls.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    cls.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalEnrollments = classes.reduce((sum, c) => sum + (c.enrollment_count || 0), 0);
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Classes</h1>
+            <p className="text-muted-foreground">Manage all classes across the institution</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-64"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <BookOpen className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{classes.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Classes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <Users className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{totalEnrollments}</p>
+                  <p className="text-sm text-muted-foreground">Total Enrollments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-accent/10">
+                  <Building className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {new Set(classes.map(c => c.department)).size}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Departments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <MapPin className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {new Set(classes.map(c => c.room)).size}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Rooms</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>All Classes</CardTitle>
+            <CardDescription>
+              {filteredClasses.length} class{filteredClasses.length !== 1 ? 'es' : ''} found
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredClasses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No classes found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Professor</TableHead>
+                    <TableHead>Room</TableHead>
+                    <TableHead>Enrollments</TableHead>
+                    <TableHead>Join Code</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredClasses.map((cls) => (
+                    <TableRow key={cls.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{cls.subject}</p>
+                          <p className="text-sm text-muted-foreground">{cls.code}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{cls.department}</TableCell>
+                      <TableCell>{cls.professor_name}</TableCell>
+                      <TableCell>{cls.room}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{cls.enrollment_count}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <code className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                          {cls.join_code}
+                        </code>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem>View Enrollments</DropdownMenuItem>
+                            <DropdownMenuItem>View Sessions</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+}
