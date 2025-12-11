@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const authHeader = req.headers.get('Authorization');
@@ -24,13 +23,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create a client with the user's JWT for auth verification
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
+    // Extract the JWT token from the header
+    const token = authHeader.replace('Bearer ', '');
+
+    // Create admin client for auth verification and database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
     });
 
-    // Verify the user
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    // Verify the user using the token
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
       console.error('Auth error:', userError);
@@ -39,9 +44,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // Create service role client for database operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { sessionId } = await req.json();
     
