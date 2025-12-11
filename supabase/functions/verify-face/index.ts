@@ -69,13 +69,31 @@ serve(async (req) => {
       });
     }
 
+    // Verify student is enrolled in the class
+    const { data: enrollment } = await supabase
+      .from('class_enrollments')
+      .select('id')
+      .eq('class_id', session.class_id)
+      .eq('student_id', user.id)
+      .maybeSingle();
+
+    if (!enrollment) {
+      console.log('Student not enrolled in class:', session.class_id);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'You are not enrolled in this class' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Check if already marked attendance
     const { data: existingRecord } = await supabase
       .from('attendance_records')
       .select('id')
       .eq('session_id', sessionId)
       .eq('student_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existingRecord) {
       return new Response(JSON.stringify({ 
