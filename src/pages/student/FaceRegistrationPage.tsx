@@ -23,14 +23,16 @@ export default function FaceRegistrationPage() {
     if (!authUser) return;
 
     const { data, error } = await supabase
-      .from('profiles')
-      .select('face_embedding, face_registered_at')
+      .from('face_embeddings')
+      .select('registered_at')
       .eq('user_id', authUser.id)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
-      setIsRegistered(!!data.face_embedding);
-      setRegisteredAt(data.face_registered_at);
+      setIsRegistered(true);
+      setRegisteredAt(data.registered_at);
+    } else {
+      setIsRegistered(false);
     }
   };
 

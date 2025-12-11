@@ -215,14 +215,36 @@ export type Database = {
         }
         Relationships: []
       }
+      face_embeddings: {
+        Row: {
+          embedding: string
+          id: string
+          registered_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          embedding: string
+          id?: string
+          registered_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          embedding?: string
+          id?: string
+          registered_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           department: string | null
           email: string
           employee_id: string | null
-          face_embedding: string | null
-          face_registered_at: string | null
           id: string
           name: string
           photo_url: string | null
@@ -235,8 +257,6 @@ export type Database = {
           department?: string | null
           email: string
           employee_id?: string | null
-          face_embedding?: string | null
-          face_registered_at?: string | null
           id?: string
           name: string
           photo_url?: string | null
@@ -249,8 +269,6 @@ export type Database = {
           department?: string | null
           email?: string
           employee_id?: string | null
-          face_embedding?: string | null
-          face_registered_at?: string | null
           id?: string
           name?: string
           photo_url?: string | null

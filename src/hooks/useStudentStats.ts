@@ -47,13 +47,13 @@ export function useStudentStats() {
       try {
         setIsLoading(true);
 
-        // Check face registration
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('face_embedding')
+        // Check face registration from secure table
+        const { data: faceData } = await supabase
+          .from('face_embeddings')
+          .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
-        setFaceRegistered(!!profile?.face_embedding);
+        setFaceRegistered(!!faceData);
 
         // Get enrolled classes
         const { data: enrollments, error: enrollError } = await supabase

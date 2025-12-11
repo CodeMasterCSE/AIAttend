@@ -140,17 +140,38 @@ Return ONLY valid JSON, no markdown or explanation.`
       });
     }
 
-    // Store the face embedding in the profile
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ 
-        face_embedding: JSON.stringify(faceData),
-        face_registered_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id);
+    // Store the face embedding in the secure face_embeddings table
+    // First check if user already has a face registered
+    const { data: existingFace } = await supabase
+      .from('face_embeddings')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
+    let dbError;
+    if (existingFace) {
+      // Update existing
+      const { error } = await supabase
+        .from('face_embeddings')
+        .update({ 
+          embedding: JSON.stringify(faceData),
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+      dbError = error;
+    } else {
+      // Insert new
+      const { error } = await supabase
+        .from('face_embeddings')
+        .insert({ 
+          user_id: user.id,
+          embedding: JSON.stringify(faceData)
+        });
+      dbError = error;
+    }
+
+    if (dbError) {
+      console.error('Database error:', dbError);
       throw new Error('Failed to save face data');
     }
 

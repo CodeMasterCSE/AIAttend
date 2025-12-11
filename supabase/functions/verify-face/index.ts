@@ -34,14 +34,14 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Get user's stored face embedding
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('face_embedding, name')
+    // Get user's stored face embedding from secure table
+    const { data: faceRecord, error: faceError } = await supabase
+      .from('face_embeddings')
+      .select('embedding')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !profile?.face_embedding) {
+    if (faceError || !faceRecord?.embedding) {
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Face not registered. Please register your face first.' 
@@ -50,7 +50,7 @@ serve(async (req) => {
       });
     }
 
-    const storedFaceData = JSON.parse(profile.face_embedding);
+    const storedFaceData = JSON.parse(faceRecord.embedding);
 
     // Verify the session is active
     const { data: session, error: sessionError } = await supabase
