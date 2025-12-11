@@ -27,8 +27,9 @@ import {
 export default function QRSessionsPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [isStarting, setIsStarting] = useState(false);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string>('');
-  const { classes, isLoading: classesLoading, updateClass } = useClasses();
+  const { classes, isLoading: classesLoading, updateClass, refreshClasses } = useClasses();
   const { sessions, createSession, endSession, refreshSessions } = useAttendanceSessions();
   const { toast } = useToast();
 
@@ -100,6 +101,32 @@ export default function QRSessionsPage() {
       toast({ title: 'Error', description: 'Failed to start session', variant: 'destructive' });
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleUpdateLocation = async () => {
+    if (!selectedClassId) return;
+
+    setIsUpdatingLocation(true);
+    try {
+      const location = await captureLocation();
+      
+      if (location) {
+        await updateClass(selectedClassId, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+        await refreshClasses();
+        toast({ 
+          title: 'Location updated', 
+          description: 'New classroom location saved for proximity check-in',
+        });
+      }
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast({ title: 'Error', description: 'Failed to update location', variant: 'destructive' });
+    } finally {
+      setIsUpdatingLocation(false);
     }
   };
 
@@ -215,16 +242,41 @@ export default function QRSessionsPage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Started at {activeSession.start_time}
                     </p>
+                    {selectedClass?.latitude && selectedClass?.longitude && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <MapPin className="h-3 w-3 inline mr-1" />
+                        Location: {selectedClass.latitude.toFixed(6)}, {selectedClass.longitude.toFixed(6)}
+                      </p>
+                    )}
                   </div>
-                  <Button 
-                    onClick={handleEndSession} 
-                    variant="destructive"
-                    className="w-full"
-                    size="lg"
-                  >
-                    <StopCircle className="h-4 w-4 mr-2" />
-                    End Session
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleUpdateLocation} 
+                      variant="outline"
+                      className="flex-1"
+                      disabled={isUpdatingLocation}
+                    >
+                      {isUpdatingLocation ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Update Location
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      onClick={handleEndSession} 
+                      variant="destructive"
+                      className="flex-1"
+                    >
+                      <StopCircle className="h-4 w-4 mr-2" />
+                      End Session
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
