@@ -101,14 +101,51 @@ export function ProximityCheckIn({ sessionId, classId, classRoom, onSuccess }: P
         },
       });
 
+      // Handle edge function errors - check if it's a structured error response
       if (error) {
-        console.error('Edge function error:', error);
+        // Try to parse the error context for distance info (400 responses)
+        const errorContext = error.context;
+        if (errorContext) {
+          try {
+            const errorBody = await errorContext.json();
+            if (errorBody.distance !== undefined && errorBody.allowedRadius !== undefined) {
+              setDistance(errorBody.distance);
+              setAllowedRadius(errorBody.allowedRadius);
+              setVerificationStatus('failed');
+              toast({
+                title: "Too far from classroom",
+                description: `You are ${errorBody.distance}m away. Must be within ${errorBody.allowedRadius}m of ${errorBody.room || classRoom}.`,
+                variant: "destructive",
+              });
+              return;
+            }
+            if (errorBody.error === 'You are not enrolled in this class') {
+              setVerificationStatus('failed');
+              toast({
+                title: "Not Enrolled",
+                description: "You are not enrolled in this class.",
+                variant: "destructive",
+              });
+              return;
+            }
+            if (errorBody.error) {
+              setVerificationStatus('failed');
+              toast({
+                title: "Check-in Failed",
+                description: errorBody.error,
+                variant: "destructive",
+              });
+              return;
+            }
+          } catch {
+            // Context parsing failed, fall through to generic error
+          }
+        }
         throw new Error(error.message || 'Verification failed');
       }
 
-      // Handle response from edge function
-      if (data.error) {
-        // Check if it's a distance error
+      // Handle successful response with error field
+      if (data?.error) {
         if (data.distance !== undefined && data.allowedRadius !== undefined) {
           setDistance(data.distance);
           setAllowedRadius(data.allowedRadius);
@@ -126,26 +163,31 @@ export function ProximityCheckIn({ sessionId, classId, classRoom, onSuccess }: P
             variant: "destructive",
           });
         } else {
-          throw new Error(data.error);
+          setVerificationStatus('failed');
+          toast({
+            title: "Check-in Failed",
+            description: data.error,
+            variant: "destructive",
+          });
         }
         return;
       }
 
       // Success or already checked in
-      if (data.alreadyCheckedIn) {
+      if (data?.alreadyCheckedIn) {
         setVerificationStatus('already_checked_in');
         toast({
           title: "Already Checked In",
           description: "Your attendance was already recorded for this session.",
         });
       } else {
-        if (data.distance !== null) {
+        if (data?.distance !== null && data?.distance !== undefined) {
           setDistance(data.distance);
         }
         setVerificationStatus('success');
         toast({
           title: "Check-in Successful!",
-          description: data.message || "Your attendance has been recorded.",
+          description: data?.message || "Your attendance has been recorded.",
         });
       }
       onSuccess?.();
