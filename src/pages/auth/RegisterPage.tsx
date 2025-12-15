@@ -25,7 +25,20 @@ export default function RegisterPage() {
   const { toast } = useToast();
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      let updatedData = { ...prev, [field]: value };
+      
+    
+      // Automatically update email based on department and roll number
+      if (updatedData.department && updatedData.rollNumber) {
+        const rollNumberLowerCase = updatedData.rollNumber.toLowerCase(); 
+        updatedData.email = `${rollNumberLowerCase}@rcciit.org.in`;
+      } else {
+        updatedData.email = ''; // Clear email if department or roll number is empty
+      }
+
+      return updatedData;
+    });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -44,7 +57,7 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-
+    
     try {
       const { error } = await register(
         result.data.email, 
@@ -107,6 +120,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Decorative */}
+      {/* ... other elements ... */}
       <div className="hidden lg:flex lg:w-1/2 gradient-bg relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
         <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-primary-foreground">
@@ -153,9 +167,11 @@ export default function RegisterPage() {
         </div>
       </div>
 
+      
       {/* Right Panel - Registration Form */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12 bg-background overflow-y-auto">
         <div className="w-full max-w-md space-y-6 animate-fade-in py-8">
+          {/* ... existing form elements ... */}
           <div className="lg:hidden flex justify-center mb-6">
             <div className="w-16 h-16 rounded-2xl gradient-bg flex items-center justify-center shadow-glow">
               <ScanFace className="w-10 h-10 text-primary-foreground" />
@@ -177,7 +193,9 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          
           <form onSubmit={handleRegister} className="space-y-5">
+            {/* Other form fields */}
             <div className="space-y-2">
               <Label htmlFor="role">I am a</Label>
               <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
@@ -197,31 +215,13 @@ export default function RegisterPage() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="name"
-                  placeholder="John Doe"
+                  placeholder="Your Name"
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   className="pl-10"
                   required
                   autoComplete="name"
                   maxLength={100}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@university.edu"
-                  value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  className="pl-10"
-                  required
-                  autoComplete="email"
-                  maxLength={255}
                 />
               </div>
             </div>
@@ -250,7 +250,7 @@ export default function RegisterPage() {
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="rollNumber"
-                    placeholder="CS2024001"
+                    placeholder="departmentrollno"
                     value={formData.rollNumber}
                     onChange={(e) => handleChange('rollNumber', e.target.value)}
                     className="pl-10"
@@ -259,6 +259,24 @@ export default function RegisterPage() {
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="departmentrollno@rcciit.org.in"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  className="pl-10"
+                  required
+                  autoComplete="email"
+                  maxLength={255}
+                />
+              </div>
+            </div>
 
             {formData.role === 'professor' && (
               <div className="space-y-2">
@@ -296,7 +314,7 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm</Label>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -349,6 +367,7 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>
+  );
 }
+          
