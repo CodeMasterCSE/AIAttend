@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { useClasses } from '@/hooks/useClasses';
 import { useAttendanceRecords } from '@/hooks/useAttendanceRecords';
+import { AttendanceReportPDF } from '@/components/professor/AttendanceReportPDF';
 import { Download, FileText, Calendar, Users, ScanFace, QrCode, Wifi, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -104,10 +105,16 @@ export default function AttendanceReportsPage() {
               </SelectContent>
             </Select>
 
-            <Button onClick={downloadCSV} disabled={records.length === 0}>
+            <Button onClick={downloadCSV} disabled={records.length === 0} variant="outline">
               <Download className="w-4 h-4 mr-2" />
-              Export CSV
+              CSV
             </Button>
+            <AttendanceReportPDF 
+              records={records}
+              className={selectedClass?.subject || 'All Classes'}
+              classCode={selectedClass?.code}
+              disabled={records.length === 0}
+            />
           </div>
         </div>
 

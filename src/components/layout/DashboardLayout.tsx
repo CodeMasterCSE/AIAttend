@@ -44,10 +44,11 @@ const studentNavItems = [
   { icon: History, label: 'Attendance', path: '/student/attendance' },
 ];
 
-// Professor: 4 items - Dashboard, Sessions, Classes, Reports
+// Professor: 5 items - Dashboard, Sessions, Timetable, Classes, Reports
 const professorNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/professor' },
   { icon: PlayCircle, label: 'Sessions', path: '/professor/sessions' },
+  { icon: Calendar, label: 'Timetable', path: '/professor/timetable' },
   { icon: BookOpen, label: 'Classes', path: '/professor/classes' },
   { icon: BarChart3, label: 'Reports', path: '/professor/reports' },
 ];
