@@ -29,6 +29,8 @@ import {
 import { useStudentStats } from '@/hooks/useStudentStats';
 import { ActiveSessionsBanner } from '@/components/student/ActiveSessionsBanner';
 import { JoinClassCard } from '@/components/student/JoinClassCard';
+import { PieChart, Pie, Cell } from 'recharts';
+import { cn } from '@/lib/utils';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -111,6 +113,86 @@ export default function StudentDashboard() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
+          </div>
+        </div>
+
+        {/* Role-specific Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Overall Percentage - Ring Chart */}
+          <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 flex items-center gap-4">
+            <div className="w-28 h-28">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Attendance', value: stats.overallAttendance || 0 },
+                      { name: 'Remaining', value: Math.max(0, 100 - (stats.overallAttendance || 0)) },
+                    ]}
+                    innerRadius={38}
+                    outerRadius={54}
+                    startAngle={90}
+                    endAngle={-270}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="hsl(var(--primary))" />
+                    <Cell fill="hsl(var(--muted)/0.2)" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Overall Percentage
+              </p>
+              <p className="text-3xl font-bold leading-tight">{stats.overallAttendance || 0}%</p>
+              <p className="text-xs text-muted-foreground mt-1">Across all classes this semester</p>
+            </div>
+          </div>
+
+          {/* Today's Status */}
+          <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 flex flex-col justify-center">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Today&apos;s Status
+            </p>
+            <p
+              className={cn(
+                "mt-2 text-2xl font-bold",
+                stats.todayStatus === 'present' && "text-green-600 dark:text-green-400",
+                stats.todayStatus === 'absent' && "text-red-600",
+                stats.todayStatus === 'pending' && "text-amber-500"
+              )}
+            >
+              {stats.todayStatus === 'present' && 'Present'}
+              {stats.todayStatus === 'absent' && 'Absent'}
+              {stats.todayStatus === 'pending' && 'Pending'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Based on today&apos;s scheduled sessions
+            </p>
+          </div>
+
+          {/* Next Class to Attend */}
+          <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 flex flex-col justify-center">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Next Class to Attend
+            </p>
+            {stats.nextClass ? (
+              <div className="mt-2 space-y-1">
+                <p className="font-semibold text-sm">
+                  {stats.nextClass.subject}{' '}
+                  <span className="text-xs text-muted-foreground">({stats.nextClass.code})</span>
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Calendar className="w-3 h-3" />
+                  {stats.nextClass.startTime} • Room {stats.nextClass.room}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No upcoming classes scheduled for today.
+              </p>
+            )}
           </div>
         </div>
 

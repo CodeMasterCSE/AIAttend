@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useClasses } from '@/hooks/useClasses';
 import { useAttendanceRecords } from '@/hooks/useAttendanceRecords';
 import { useAttendanceSessions } from '@/hooks/useAttendanceSessions';
+import { useClassSchedules } from '@/hooks/useClassSchedules';
 import { 
   Users, 
   BookOpen, 
@@ -36,6 +37,9 @@ export default function ProfessorDashboard() {
   const { records } = useAttendanceRecords();
   const { sessions } = useAttendanceSessions();
   const firstClass = classes[0];
+  const { schedules } = useClassSchedules();
+  const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+  const todaySchedules = schedules.filter((s) => s.day === todayDayName);
 
   // Transform records to LiveAttendanceCard format
   const liveRecords = useMemo(() => {
@@ -122,26 +126,26 @@ export default function ProfessorDashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Role-specific Faculty Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
-            title="Total Records"
-            value={attendanceStats.total.toString()}
-            subtitle="Attendance entries"
-            icon={Users}
+            title="Today's Class Schedule"
+            value={todaySchedules.length.toString()}
+            subtitle="Classes scheduled for today"
+            icon={Calendar}
             variant="primary"
           />
           <StatsCard
-            title="Active Classes"
-            value={isLoading ? '...' : classes.length.toString()}
-            subtitle="This semester"
-            icon={BookOpen}
-            variant="default"
+            title="Pending Approval Requests"
+            value="0"
+            subtitle="Requests awaiting review"
+            icon={Users}
+            variant="warning"
           />
           <StatsCard
-            title="Avg. Attendance"
+            title="Quick Access to Attendance"
             value={`${attendanceStats.avgPercentage}%`}
-            subtitle="Present rate"
+            subtitle="Current average attendance"
             icon={TrendingUp}
             variant="success"
           />

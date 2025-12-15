@@ -19,6 +19,13 @@ export interface StudentStats {
   totalSessions: number;
   enrolledCourses: number;
   todayClasses: number;
+  todayStatus: 'present' | 'absent' | 'pending';
+  nextClass: {
+    subject: string;
+    code: string;
+    room: string;
+    startTime: string;
+  } | null;
 }
 
 export interface AttendanceWeekData {
@@ -34,6 +41,8 @@ export function useStudentStats() {
     totalSessions: 0,
     enrolledCourses: 0,
     todayClasses: 0,
+    todayStatus: 'pending',
+    nextClass: null,
   });
   const [weeklyData, setWeeklyData] = useState<AttendanceWeekData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +97,7 @@ export function useStudentStats() {
       // Get all sessions for enrolled classes
       const { data: sessions, error: sessionsError } = await supabase
         .from('attendance_sessions')
-        .select('id, class_id, date')
+        .select('id, class_id, date, start_time')
         .in('class_id', classIds);
 
       if (sessionsError) throw sessionsError;
@@ -129,13 +138,74 @@ export function useStudentStats() {
       const overallAttendance =
         totalSessions > 0 ? Math.round((totalPresent / totalSessions) * 100) : 0;
 
-      // Get today's schedules
-      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      // Get today's schedules + next upcoming class
+      const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       const { data: todaySchedules } = await supabase
         .from('class_schedules')
-        .select('class_id')
+        .select(`
+          id,
+          class_id,
+          day,
+          start_time,
+          end_time,
+          classes (
+            subject,
+            code,
+            room
+          )
+        `)
         .in('class_id', classIds)
-        .eq('day', today);
+        .eq('day', todayDayName);
+
+      let nextClass: StudentStats['nextClass'] = null;
+      if (todaySchedules && todaySchedules.length > 0) {
+        const now = new Date();
+        const parsed = todaySchedules.map((s: any) => {
+          const [h, m] = (s.start_time || '00:00').split(':').map(Number);
+          const start = new Date();
+          start.setHours(h || 0, m || 0, 0, 0);
+          return { ...s, _start: start };
+        });
+
+        const upcoming = parsed
+          .filter((s: any) => s._start >= now)
+          .sort((a: any, b: any) => a._start.getTime() - b._start.getTime());
+
+        const target = (upcoming[0] || parsed.sort((a: any, b: any) => a._start.getTime() - b._start.getTime())[0]);
+        nextClass = {
+          subject: target.classes?.subject,
+          code: target.classes?.code,
+          room: target.classes?.room,
+          startTime: target.start_time,
+        };
+      }
+
+      // Derive today's status (Present / Absent / Pending)
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      const todaySessions = (sessions || []).filter((s: any) => s.date === todayDateStr);
+      const todayPresentRecords =
+        records?.filter(
+          (r: any) =>
+            r.status === 'present' &&
+            todaySessions.some((s: any) => s.id === r.session_id)
+        ) || [];
+
+      let todayStatus: StudentStats['todayStatus'] = 'pending';
+      if (todaySessions.length === 0) {
+        todayStatus = 'pending';
+      } else if (todayPresentRecords.length > 0) {
+        todayStatus = 'present';
+      } else {
+        const now = new Date();
+        const allPast = todaySessions.every((s: any) => {
+          if (!s.start_time) return false;
+          const [h, m] = s.start_time.split(':').map(Number);
+          const start = new Date();
+          start.setHours(h || 0, m || 0, 0, 0);
+          return start < now;
+        });
+        todayStatus = allPast ? 'absent' : 'pending';
+      }
 
       setStats({
         overallAttendance,
@@ -143,6 +213,8 @@ export function useStudentStats() {
         totalSessions,
         enrolledCourses: classIds.length,
         todayClasses: todaySchedules?.length || 0,
+        todayStatus,
+        nextClass,
       });
 
       // Calculate weekly attendance data (last 6 weeks)
