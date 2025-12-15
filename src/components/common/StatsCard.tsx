@@ -41,7 +41,9 @@ export function StatsCard({
 }: StatsCardProps) {
   return (
     <div className={cn(
-      "rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in",
+      "rounded-2xl p-6 border border-border/60 bg-background/70 dark:bg-card/70",
+      "backdrop-blur-xl shadow-[0_16px_40px_rgba(15,23,42,0.18)] hover:shadow-[0_22px_55px_rgba(15,23,42,0.30)]",
+      "transition-all duration-300 animate-fade-in",
       variantStyles[variant],
       className
     )}>
