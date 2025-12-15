@@ -164,7 +164,7 @@ export default function ProfessorDashboard() {
           {/* Right Sidebar */}
           <div className="space-y-6">
             {/* Check-in Methods */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <h3 className="font-semibold text-lg mb-4">Check-in Methods</h3>
               <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -198,7 +198,7 @@ export default function ProfessorDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <h3 className="font-semibold text-lg mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <Button variant="outline" className="w-full justify-start" asChild>
@@ -225,7 +225,7 @@ export default function ProfessorDashboard() {
         </div>
 
         {/* Attendance Chart */}
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-semibold text-lg">Weekly Attendance Overview</h3>
@@ -257,7 +257,7 @@ export default function ProfessorDashboard() {
         </div>
 
         {/* Classes List */}
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-semibold text-lg">Your Classes</h3>

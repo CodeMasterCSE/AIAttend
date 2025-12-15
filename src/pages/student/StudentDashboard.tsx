@@ -162,7 +162,7 @@ export default function StudentDashboard() {
           {/* Enrolled Courses & Attendance Chart */}
           <div className="lg:col-span-2 space-y-6">
             {/* Enrolled Courses */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="font-semibold text-lg">Enrolled Courses</h3>
@@ -216,7 +216,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* Attendance Chart */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="font-semibold text-lg">Attendance Trend</h3>
@@ -257,9 +257,9 @@ export default function StudentDashboard() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="space-y-6">
+            <div className="space-y-6">
             {/* Quick Stats */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <h3 className="font-semibold text-lg mb-4">Attendance Summary</h3>
               {isLoading ? (
                 <div className="space-y-4">
@@ -298,7 +298,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* Course Status */}
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
               <h3 className="font-semibold text-lg mb-4">Course Status</h3>
               {isLoading ? (
                 <Skeleton className="h-24 rounded-lg" />

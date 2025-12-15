@@ -102,7 +102,7 @@ export default function AdminDashboard() {
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Attendance Trend */}
-          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6">
+          <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="font-semibold text-lg">Institution Attendance Trend</h3>
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
         {/* Quick Stats & Activity */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Department Overview */}
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
             <h3 className="font-semibold text-lg mb-4">Department Overview</h3>
             <div className="space-y-4">
               {[
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Recent Activity */}
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300">
             <h3 className="font-semibold text-lg mb-4">Recent Activity</h3>
             <div className="space-y-4">
               {recentActivity.map((activity, index) => (
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
             <Link
               key={action.label}
               to={action.path}
-              className="p-6 rounded-2xl border border-border bg-card hover:border-primary/50 hover:shadow-md transition-all duration-300 group"
+              className="p-6 rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] hover:border-primary/50 hover:shadow-[0_22px_55px_rgba(15,23,42,0.30)] transition-all duration-300 group"
             >
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
                 action.color === 'primary' ? 'gradient-bg' :

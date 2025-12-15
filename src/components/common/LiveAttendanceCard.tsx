@@ -56,7 +56,13 @@ export function LiveAttendanceCard({ records, className }: LiveAttendanceCardPro
   };
 
   return (
-    <div className={cn("rounded-2xl border border-border bg-card p-6", className)}>
+    <div
+      className={cn(
+        "rounded-2xl border border-border/60 bg-background/60 dark:bg-card/60 backdrop-blur-xl",
+        "shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-6 transition-all duration-300",
+        className
+      )}
+    >
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="font-semibold text-lg">Live Check-ins</h3>
