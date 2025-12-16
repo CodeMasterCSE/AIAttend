@@ -23,6 +23,7 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
   } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
 
   const getCurrentPosition = () => {
     return new Promise<GeolocationPosition>((resolve, reject) => {
@@ -57,6 +58,23 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
     });
   };
 
+  const ensureLocationPermission = async () => {
+    try {
+      const position = await getCurrentPosition();
+      setHasLocationPermission(true);
+      return position;
+    } catch (error: any) {
+      setHasLocationPermission(false);
+      const message = error?.message || 'Location permission is required for QR check-in.';
+      toast({
+        title: 'Location Required',
+        description: message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   const stopScanning = useCallback(async () => {
     if (scannerRef.current) {
       try {
@@ -83,7 +101,7 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
       console.log('Scanned QR data:', decodedText);
 
       // Immediately capture GPS after successful QR scan
-      const position = await getCurrentPosition();
+      const position = await ensureLocationPermission();
       const { latitude, longitude, accuracy } = position.coords;
 
       const { data, error } = await supabase.functions.invoke('verify-qr', {
@@ -103,6 +121,22 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
         if (errorContext) {
           try {
             const parsed = await errorContext.clone().json();
+
+            // Explicit out-of-range handling when distance info is present
+            if (parsed?.distance !== undefined && parsed?.allowedRadius !== undefined) {
+              const desc = `You are ${parsed.distance}m away. Must be within ${parsed.allowedRadius}m of ${parsed.room || 'the classroom'}.`;
+              setScanResult({
+                success: false,
+                message: desc,
+              });
+              toast({
+                title: 'Out of Range',
+                description: desc,
+                variant: 'destructive',
+              });
+              return;
+            }
+
             const errMsg = parsed?.error || parsed?.message || 'Verification failed';
             setScanResult({
               success: false,
@@ -146,6 +180,22 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
         });
       } else {
         const errorMsg = data.error || 'Verification failed';
+
+        // Explicit out-of-range handling from successful JSON body
+        if (data.distance !== undefined && data.allowedRadius !== undefined) {
+          const desc = `You are ${data.distance}m away. Must be within ${data.allowedRadius}m of ${data.room || 'the classroom'}.`;
+          setScanResult({
+            success: false,
+            message: desc,
+          });
+          toast({
+            title: 'Out of Range',
+            description: desc,
+            variant: 'destructive',
+          });
+          return;
+        }
+
         // Check for duplicate attendance
         if (errorMsg.toLowerCase().includes('already marked') || errorMsg.toLowerCase().includes('already checked')) {
           setScanResult({

@@ -25,6 +25,37 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Fire-and-forget GPS permission request when starting face recognition
+  const requestLocationPermission = () => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        // Location enabled; nothing else to do here
+      },
+      (error) => {
+        let errorMessage = 'Unable to retrieve your location.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location permission denied. Please enable GPS for secure check-in.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out.';
+            break;
+        }
+        toast.error(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -54,6 +85,9 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
     setStatusMessage('');
 
     try {
+      // Prompt for GPS as soon as face check-in starts
+      requestLocationPermission();
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera API not supported');
       }
