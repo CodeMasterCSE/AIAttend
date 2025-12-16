@@ -15,32 +15,13 @@ interface CaptureData {
 }
 
 interface FaceAnalysis {
-  face_detected: boolean;
-  single_face: boolean;
+  status: 'success' | 'failure';
+  reason: string;
   face_count: number;
-  is_real_person: boolean;
-  spoof_indicators: string[];
-  face_quality: number;
-  face_features: {
-    face_shape: string;
-    forehead: string;
-    eyebrows: string;
-    eyes: string;
-    nose: string;
-    mouth: string;
-    chin: string;
-    cheekbones: string;
-    jawline: string;
-    skin_tone: string;
-    distinctive_features: string[];
-  };
-  angle_verification: {
-    is_front: boolean;
-    is_left_turn: boolean;
-    is_right_turn: boolean;
-    is_looking_up: boolean;
-  };
-  embedding_signature: string;
+  liveness: 'live' | 'spoof' | 'uncertain';
+  quality_score: number;
+  facial_signature: string | null;
+  angle_verified: boolean;
 }
 
 function extractBase64(imageBase64: string): { mimeType: string; data: string } {
@@ -76,54 +57,78 @@ async function analyzeFaceImage(
       messages: [
         {
           role: 'system',
-          content: `You are a secure biometric face analysis system. Analyze the provided face image with extreme scrutiny for security purposes.
+          content: `You are an expert computer vision system specialized in human face analysis.
+Your task is to STRICTLY analyze images for face recognition purposes.
 
-Your analysis MUST include:
-1. FACE DETECTION: Is there exactly one clear human face visible?
-2. ANTI-SPOOFING: Check for indicators of a fake/printed/screen-displayed photo:
-   - Unnatural lighting or reflections
-   - Paper/screen edges visible
-   - Moire patterns from screens
-   - Lack of 3D depth cues
-   - Unnatural skin texture
-   - Missing micro-expressions
-3. FACE QUALITY: Rate quality from 0-100 based on:
-   - Image clarity and focus
-   - Proper lighting
-   - Face visibility
-   - No obstructions
-4. ANGLE VERIFICATION: Does the face match the expected angle: "${expectedAngle}"?
-5. DETAILED FEATURES: Extract comprehensive facial features for identity matching.
+IMPORTANT:
+This system is used for an AI-based attendance platform.
+Accuracy, consistency, and strict validation are REQUIRED.
 
-Return ONLY valid JSON with this exact structure:
+TASKS (FOLLOW IN ORDER):
+1. Analyze the provided image.
+2. Detect whether the image contains:
+   - Exactly ONE real human face
+   - Zero faces
+   - More than one face
+3. If the image does NOT contain exactly one real human face,
+   immediately return a failure response.
+
+VALIDATION RULES:
+- The face must be:
+  - Clearly visible
+  - Front-facing or slightly angled (±30°)
+  - Not blurred
+  - Not cropped
+  - Not covered by mask, sunglasses, or heavy obstruction
+- Reject images that appear to be:
+  - Photos of photos
+  - Screens
+  - Videos
+  - Printed images
+  - AI-generated faces
+- Reject images with:
+  - Poor lighting
+  - Extreme angles
+  - Heavy shadows
+  - Motion blur
+
+ANTI-SPOOFING CHECK:
+Determine if the face belongs to a LIVE PERSON.
+If the image appears artificial, replayed, or static, reject it.
+
+FACE CONSISTENCY OUTPUT:
+If exactly one valid face is detected:
+- Generate a stable and repeatable facial description
+  using distinguishing facial attributes:
+  - Face shape
+  - Eye spacing
+  - Nose structure
+  - Jawline
+  - Facial proportions
+- This description MUST be consistent when the same person
+  is analyzed multiple times.
+
+ANGLE VERIFICATION:
+The expected angle is: "${expectedAngle}"
+Verify that the face matches the expected angle. Set angle_verified to true only if matched.
+
+OUTPUT FORMAT (STRICT JSON ONLY):
 {
-  "face_detected": boolean,
-  "single_face": boolean,
+  "status": "success | failure",
+  "reason": "clear short explanation",
   "face_count": number,
-  "is_real_person": boolean,
-  "spoof_indicators": ["list of any suspicious indicators found"],
-  "face_quality": number (0-100),
-  "face_features": {
-    "face_shape": "oval/round/square/heart/oblong",
-    "forehead": "height and width description",
-    "eyebrows": "shape and characteristics",
-    "eyes": "detailed eye description including shape, size, color, spacing",
-    "nose": "shape, size, bridge characteristics",
-    "mouth": "shape, size, lip characteristics",
-    "chin": "shape and prominence",
-    "cheekbones": "prominence description",
-    "jawline": "sharpness and width",
-    "skin_tone": "general description",
-    "distinctive_features": ["moles", "scars", "dimples", etc.]
-  },
-  "angle_verification": {
-    "is_front": boolean,
-    "is_left_turn": boolean,
-    "is_right_turn": boolean,
-    "is_looking_up": boolean
-  },
-  "embedding_signature": "64-character unique hash based on all facial features combined"
-}`
+  "liveness": "live | spoof | uncertain",
+  "quality_score": number (0-100),
+  "facial_signature": "stable textual facial descriptor OR null",
+  "angle_verified": true | false
+}
+
+IMPORTANT CONSTRAINTS:
+- DO NOT guess.
+- DO NOT assume identity.
+- If uncertain, return failure.
+- Be conservative rather than permissive.
+- Consistency is more important than recall.`
         },
         {
           role: 'user',
@@ -157,7 +162,17 @@ Return ONLY valid JSON with this exact structure:
 
   // Parse JSON response
   const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  return JSON.parse(cleanContent);
+  const parsed = JSON.parse(cleanContent);
+  
+  return {
+    status: parsed.status === 'success' ? 'success' : 'failure',
+    reason: parsed.reason || 'Unknown',
+    face_count: parsed.face_count ?? 0,
+    liveness: parsed.liveness || 'uncertain',
+    quality_score: parsed.quality_score ?? 0,
+    facial_signature: parsed.facial_signature || null,
+    angle_verified: parsed.angle_verified ?? false
+  };
 }
 
 async function checkForDuplicates(
@@ -188,8 +203,13 @@ async function checkForDuplicates(
       messages: [
         {
           role: 'system',
-          content: `You are a face embedding comparison system. Compare the new face data against existing face data to detect duplicates.
-          
+          content: `You are a face embedding comparison system. Compare the new facial signature data against existing face data to detect duplicates.
+
+COMPARISON MODE:
+- Compare the current facial signatures with the references
+- Return a similarity confidence score (0–100)
+- Consider it a match ONLY if similarity ≥ 85
+
 Return JSON: { "is_duplicate": boolean, "highest_similarity": number (0-100), "matched_index": number or null }`
         },
         {
@@ -221,7 +241,7 @@ ${JSON.stringify(existingEmbeddings.map((e: any, i: number) => ({ index: i, embe
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(cleanContent);
     
-    if (result.is_duplicate && result.matched_index !== null && result.highest_similarity > 85) {
+    if (result.is_duplicate && result.matched_index !== null && result.highest_similarity >= 85) {
       return { 
         isDuplicate: true, 
         matchedUserId: existingEmbeddings[result.matched_index]?.user_id 
@@ -308,66 +328,62 @@ serve(async (req) => {
     // Validate all captures
     const validationErrors: string[] = [];
     
-    // Check face detection in all angles
+    // Check face detection and liveness in all angles
     for (const [angle, analysis] of Object.entries(angleAnalysis)) {
-      if (!analysis.face_detected) {
-        validationErrors.push(`No face detected in ${angle} capture`);
+      if (analysis.status === 'failure') {
+        validationErrors.push(`${angle} capture failed: ${analysis.reason}`);
+        continue;
       }
-      if (!analysis.single_face) {
-        validationErrors.push(`Multiple faces detected in ${angle} capture. Only one face allowed.`);
+      if (analysis.face_count !== 1) {
+        validationErrors.push(`${angle} capture: Expected 1 face, found ${analysis.face_count}`);
       }
-      if (!analysis.is_real_person) {
-        validationErrors.push(`Anti-spoofing check failed for ${angle} capture: ${analysis.spoof_indicators.join(', ')}`);
+      if (analysis.liveness === 'spoof') {
+        validationErrors.push(`Anti-spoofing check failed for ${angle} capture: ${analysis.reason}`);
       }
-      if (analysis.face_quality < 60) {
-        validationErrors.push(`Low quality image in ${angle} capture (${analysis.face_quality}%). Please ensure good lighting and focus.`);
+      if (analysis.liveness === 'uncertain') {
+        validationErrors.push(`Liveness uncertain for ${angle} capture. Please try again with better lighting.`);
       }
-    }
-
-    // Validate angle verification
-    if (angleAnalysis.front && !angleAnalysis.front.angle_verification.is_front) {
-      validationErrors.push('Front view capture does not show a front-facing face');
-    }
-    if (angleAnalysis.left && !angleAnalysis.left.angle_verification.is_left_turn) {
-      validationErrors.push('Left turn capture does not show face turned left');
-    }
-    if (angleAnalysis.right && !angleAnalysis.right.angle_verification.is_right_turn) {
-      validationErrors.push('Right turn capture does not show face turned right');
-    }
-    if (angleAnalysis.up && !angleAnalysis.up.angle_verification.is_looking_up) {
-      validationErrors.push('Look up capture does not show face tilted up');
+      if (analysis.quality_score < 60) {
+        validationErrors.push(`Low quality in ${angle} capture (${analysis.quality_score}%). Please ensure good lighting and focus.`);
+      }
+      if (!analysis.angle_verified) {
+        validationErrors.push(`${angle} capture: Face angle does not match expected position`);
+      }
     }
 
     if (validationErrors.length > 0) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: validationErrors[0], // Return first error
+        error: validationErrors[0],
         all_errors: validationErrors
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Create comprehensive embedding from all angles
+    // Create comprehensive embedding from all angles using facial signatures
     const comprehensiveEmbedding = {
-      front_features: angleAnalysis.front?.face_features,
-      left_features: angleAnalysis.left?.face_features,
-      right_features: angleAnalysis.right?.face_features,
-      up_features: angleAnalysis.up?.face_features,
-      signatures: {
-        front: angleAnalysis.front?.embedding_signature,
-        left: angleAnalysis.left?.embedding_signature,
-        right: angleAnalysis.right?.embedding_signature,
-        up: angleAnalysis.up?.embedding_signature,
+      facial_signatures: {
+        front: angleAnalysis.front?.facial_signature,
+        left: angleAnalysis.left?.facial_signature,
+        right: angleAnalysis.right?.facial_signature,
+        up: angleAnalysis.up?.facial_signature,
       },
       quality_scores: {
-        front: angleAnalysis.front?.face_quality,
-        left: angleAnalysis.left?.face_quality,
-        right: angleAnalysis.right?.face_quality,
-        up: angleAnalysis.up?.face_quality,
+        front: angleAnalysis.front?.quality_score,
+        left: angleAnalysis.left?.quality_score,
+        right: angleAnalysis.right?.quality_score,
+        up: angleAnalysis.up?.quality_score,
+      },
+      liveness_results: {
+        front: angleAnalysis.front?.liveness,
+        left: angleAnalysis.left?.liveness,
+        right: angleAnalysis.right?.liveness,
+        up: angleAnalysis.up?.liveness,
+        blink: angleAnalysis.blink?.liveness,
       },
       registered_at: new Date().toISOString(),
-      registration_method: 'multi_angle_secure',
+      registration_method: 'multi_angle_secure_v2',
     };
 
     const embeddingJson = JSON.stringify(comprehensiveEmbedding);
@@ -419,15 +435,17 @@ serve(async (req) => {
 
     console.log('Secure face registration successful for user:', user.id);
 
+    const avgQuality = Math.round(
+      ((angleAnalysis.front?.quality_score || 0) + 
+       (angleAnalysis.left?.quality_score || 0) + 
+       (angleAnalysis.right?.quality_score || 0) + 
+       (angleAnalysis.up?.quality_score || 0)) / 4
+    );
+
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Face registered securely with multi-angle verification',
-      quality_score: Math.round(
-        (angleAnalysis.front?.face_quality || 0 + 
-         angleAnalysis.left?.face_quality || 0 + 
-         angleAnalysis.right?.face_quality || 0 + 
-         angleAnalysis.up?.face_quality || 0) / 4
-      )
+      quality_score: avgQuality
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
