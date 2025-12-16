@@ -245,19 +245,48 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a face verification system. Compare the face in the provided image against stored facial features and determine if they match the same person.
+            content: `You are a visual similarity analysis system assisting an AI attendance platform.
+You are NOT a biometric identity verifier.
 
-STORED FACIAL FEATURES:
+TASK:
+Compare the human face in the provided image with a reference image and determine whether they are LIKELY to belong to the same person.
+
+REFERENCE FACIAL FEATURES (stored during registration):
 ${JSON.stringify(storedFaceData.face_features, null, 2)}
 
-Analyze the provided image and return a JSON object with:
-- face_detected: boolean
-- match_score: number between 0 and 1 (similarity score)
-- matching_features: array of features that match
-- differing_features: array of features that differ
-- is_same_person: boolean (true if match_score >= 0.75)
-- confidence: string (high/medium/low)
-- reason: string (brief explanation)
+RULES:
+1. First validate image quality:
+   - Exactly one human face
+   - Clear visibility
+   - No heavy obstruction
+2. If validation fails, return "invalid".
+
+SIMILARITY ANALYSIS:
+- Compare overall facial appearance:
+  - Face shape
+  - Relative proportions
+  - Hairline and hairstyle (if visible)
+  - Eye spacing
+  - Nose and jaw structure
+- Use holistic visual similarity, not exact identity matching.
+
+CONFIDENCE GUIDELINES:
+- High similarity → "likely_same"
+- Moderate similarity → "uncertain"
+- Low similarity → "likely_different"
+
+IMPORTANT:
+- Do NOT be overly conservative.
+- If the faces appear visually similar, allow "likely_same".
+- This is an attendance verification system, not forensic identification.
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "status": "valid | invalid",
+  "similarity_result": "likely_same | uncertain | likely_different",
+  "confidence_score": number (0–100),
+  "reason": "brief explanation"
+}
 
 Return ONLY valid JSON, no markdown or explanation.`
           },
@@ -266,7 +295,7 @@ Return ONLY valid JSON, no markdown or explanation.`
             content: [
               {
                 type: 'text',
-                text: 'Analyze this face and compare it with the stored facial features to verify identity.'
+                text: 'Analyze this face image and compare it with the stored reference facial features for attendance verification.'
               },
               {
                 type: 'image_url',
@@ -281,7 +310,7 @@ Return ONLY valid JSON, no markdown or explanation.`
     });
 
     if (!response.ok) {
-      console.error('Face verification API error');
+      console.error('Face verification API error:', response.status);
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Face verification service error' 
@@ -309,8 +338,9 @@ Return ONLY valid JSON, no markdown or explanation.`
     try {
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       verificationResult = JSON.parse(cleanContent);
+      console.log('Verification result:', JSON.stringify(verificationResult));
     } catch (parseError) {
-      console.error('Verification response parsing failed');
+      console.error('Verification response parsing failed:', content);
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Face verification failed' 
@@ -320,23 +350,30 @@ Return ONLY valid JSON, no markdown or explanation.`
       });
     }
 
-    if (!verificationResult.face_detected) {
+    // Handle invalid image status
+    if (verificationResult.status === 'invalid') {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'No face detected in the image. Please ensure your face is clearly visible.' 
+        error: verificationResult.reason || 'Invalid image. Please ensure your face is clearly visible with no obstructions.' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const matchScore = verificationResult.match_score || 0;
-    const isVerified = verificationResult.is_same_person && matchScore >= 0.75;
+    const confidenceScore = verificationResult.confidence_score || 0;
+    const matchScore = confidenceScore / 100; // Convert to 0-1 scale for storage
+    const similarityResult = verificationResult.similarity_result;
+    
+    // Accept "likely_same" or "uncertain" with high confidence
+    const isVerified = similarityResult === 'likely_same' || 
+                       (similarityResult === 'uncertain' && confidenceScore >= 70);
 
     if (!isVerified) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: `Face verification failed. Match score: ${(matchScore * 100).toFixed(0)}%. Please try again or use QR check-in.`,
-        matchScore
+        error: `Face verification failed. ${verificationResult.reason || 'Faces do not appear to match.'} (Confidence: ${confidenceScore}%)`,
+        matchScore,
+        similarityResult
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
