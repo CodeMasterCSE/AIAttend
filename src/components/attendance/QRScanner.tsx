@@ -98,7 +98,27 @@ export function QRScanner({ onSuccess }: QRScannerProps) {
       console.log('Verify response:', data, error);
 
       if (error) {
-        // Some edge-function errors come back in `error` with a context Response
+        // Try to surface the server-provided error (common with edge function 4xx)
+        const errorContext = (error as unknown as { context?: Response }).context;
+        if (errorContext) {
+          try {
+            const parsed = await errorContext.clone().json();
+            const errMsg = parsed?.error || parsed?.message || 'Verification failed';
+            setScanResult({
+              success: false,
+              message: errMsg,
+            });
+            toast({
+              title: 'Verification Failed',
+              description: errMsg,
+              variant: 'destructive',
+            });
+            return;
+          } catch {
+            // fall through
+          }
+        }
+
         const errorMessage = typeof error.message === 'string' ? error.message : 'Verification failed';
         setScanResult({
           success: false,
