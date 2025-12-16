@@ -95,13 +95,13 @@ export default function LandingPage() {
             animationDelay: '200ms'
           }}>
               <Button variant="gradient" size="xl" asChild className="group">
-                <Link to="/register">
-                  Start Free Trial
+                <Link to="/login">
+                  Mark My Attendance
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
               <Button variant="outline" size="xl" asChild>
-                <Link to="/login">View Demo</Link>
+                <Link to="/login">Check My Status</Link>
               </Button>
             </div>
 
