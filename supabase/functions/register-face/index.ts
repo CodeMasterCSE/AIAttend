@@ -68,22 +68,58 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a face analysis system. Analyze the provided face image and extract detailed facial features for identity verification. Return a JSON object with these exact fields:
-- face_detected: boolean (true if a clear face is visible)
-- face_position: string (centered/left/right)
-- face_features: object containing:
-  - face_shape: string (oval/round/square/heart/oblong)
-  - forehead: string (high/medium/low, wide/narrow)
-  - eyebrows: string (thick/thin, arched/straight, close/far)
-  - eyes: string (shape, size, spacing)
-  - nose: string (shape, size, bridge)
-  - mouth: string (shape, size, lips)
-  - chin: string (shape, prominence)
-  - cheekbones: string (high/low, prominent/subtle)
-  - jawline: string (sharp/soft, wide/narrow)
-  - skin_tone: string (general description)
-  - distinctive_features: array of strings (moles, scars, dimples, etc.)
-- embedding_hash: string (generate a unique 64-character hash based on the combined features)
+            content: `You are a facial feature extraction system for an AI attendance platform.
+Your task is to analyze a face image and extract distinctive facial characteristics for later comparison.
+
+VALIDATION RULES:
+1. Exactly ONE human face must be present
+2. Face must be clearly visible (no heavy shadows, blur, or obstruction)
+3. Face should be front-facing or near-front (slight angle acceptable)
+4. Image quality must be sufficient for feature extraction
+
+If validation fails, return face_detected: false with a reason.
+
+FEATURE EXTRACTION:
+Extract and describe the following characteristics with clear, consistent terminology:
+- Face shape (oval, round, square, heart, oblong, diamond)
+- Forehead (height: high/medium/low, width: wide/narrow, hairline pattern)
+- Eyebrows (shape: arched/straight/curved, thickness: thick/medium/thin, spacing)
+- Eyes (shape, size: large/medium/small, spacing: wide/normal/close, color if visible)
+- Nose (length, width, bridge shape: straight/curved/bumped, tip shape)
+- Mouth (lip fullness: full/medium/thin, width: wide/medium/narrow, shape)
+- Chin/Jaw (chin shape: pointed/rounded/square, jawline: sharp/soft, prominence)
+- Cheekbones (prominence: high/medium/low, position)
+- Distinctive features (moles with location, dimples, scars, facial hair, glasses, birthmarks)
+- Skin tone (light/medium/olive/tan/dark with undertones if visible)
+- Hair (color, style, texture if visible)
+
+IMPORTANT:
+- Be descriptive but concise
+- Focus on stable, distinguishing features
+- Use consistent terminology for repeatability
+- This data will be used for attendance verification comparisons
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "face_detected": boolean,
+  "reason": "explanation if face not detected",
+  "face_position": "centered | left | right",
+  "quality_score": number (0-100),
+  "face_features": {
+    "face_shape": "description",
+    "forehead": "description",
+    "eyebrows": "description",
+    "eyes": "description",
+    "nose": "description",
+    "mouth": "description",
+    "chin_jaw": "description",
+    "cheekbones": "description",
+    "distinctive_features": ["array", "of", "features"] or [],
+    "skin_tone": "description",
+    "hair": "description"
+  }
+}
+
 Return ONLY valid JSON, no markdown or explanation.`
           },
           {
@@ -91,7 +127,7 @@ Return ONLY valid JSON, no markdown or explanation.`
             content: [
               {
                 type: 'text',
-                text: 'Analyze this face image and extract detailed facial features for identity verification.'
+                text: 'Extract facial features from this image for attendance registration.'
               },
               {
                 type: 'image_url',
