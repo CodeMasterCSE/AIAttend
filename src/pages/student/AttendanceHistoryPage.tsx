@@ -2,7 +2,6 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEnrollments } from '@/hooks/useEnrollments';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
 import { Calendar, CheckCircle, XCircle, Loader2, ScanFace, QrCode, MapPin } from 'lucide-react';
@@ -22,12 +21,49 @@ interface AttendanceRecord {
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+interface EnrolledClass {
+  id: string;
+  code: string;
+  subject: string;
+}
+
 export default function AttendanceHistoryPage() {
   const { user } = useAuth();
-  const { enrollments } = useEnrollments();
+  const [enrolledClasses, setEnrolledClasses] = useState<EnrolledClass[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
+
+  useEffect(() => {
+    const fetchEnrolledClasses = async () => {
+      if (!user?.id) return;
+      
+      const { data, error } = await supabase
+        .from('class_enrollments')
+        .select(`
+          class_id,
+          classes (
+            id,
+            code,
+            subject
+          )
+        `)
+        .eq('student_id', user.id);
+      
+      if (!error && data) {
+        const classes = data
+          .filter((e: any) => e.classes)
+          .map((e: any) => ({
+            id: e.classes.id,
+            code: e.classes.code,
+            subject: e.classes.subject,
+          }));
+        setEnrolledClasses(classes);
+      }
+    };
+    
+    fetchEnrolledClasses();
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchAttendanceRecords = async () => {
@@ -65,7 +101,7 @@ export default function AttendanceHistoryPage() {
     };
 
     fetchAttendanceRecords();
-  }, [user?.id,selectedClassId]);
+  }, [user?.id, selectedClassId]);
 
   const getMethodIcon = (method: string) => {
     switch (method) {
@@ -102,12 +138,10 @@ export default function AttendanceHistoryPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Classes</SelectItem>
-                {enrollments.map((e) => (
-                  e.classes ? (
-                    <SelectItem key={e.classes.code} value={e.classes.code}>
-                      {e.classes.subject}
-                    </SelectItem>
-                  ) : null
+                {enrolledClasses.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.subject}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
