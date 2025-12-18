@@ -21,6 +21,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AddClassDialog } from '@/components/admin/AddClassDialog';
+import { ManageClassEnrollmentsDialog } from '@/components/admin/ManageClassEnrollmentsDialog';
 
 interface ClassData {
   id: string;
@@ -122,6 +124,7 @@ export default function AdminClassesPage() {
                 className="pl-9 w-64"
               />
             </div>
+            <AddClassDialog onSuccess={fetchClasses} />
           </div>
         </div>
 
@@ -235,18 +238,20 @@ export default function AdminClassesPage() {
                         </code>
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>View Enrollments</DropdownMenuItem>
-                            <DropdownMenuItem>View Sessions</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center gap-1">
+                          <ManageClassEnrollmentsDialog classId={cls.id} className={cls.subject} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>View Sessions</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

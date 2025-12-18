@@ -22,6 +22,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Search, MoreVertical, GraduationCap, Loader2, Mail, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AddStudentDialog } from '@/components/admin/AddStudentDialog';
 
 interface Student {
   user_id: string;
@@ -99,6 +100,7 @@ export default function StudentsPage() {
                 className="pl-9 w-64"
               />
             </div>
+            <AddStudentDialog onSuccess={fetchStudents} />
           </div>
         </div>
 

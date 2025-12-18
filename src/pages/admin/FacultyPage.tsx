@@ -22,6 +22,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Search, MoreVertical, UserCog, Loader2, BookOpen, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AddProfessorDialog } from '@/components/admin/AddProfessorDialog';
 
 interface Professor {
   user_id: string;
@@ -116,6 +117,7 @@ export default function FacultyPage() {
                 className="pl-9 w-64"
               />
             </div>
+            <AddProfessorDialog onSuccess={fetchProfessors} />
           </div>
         </div>
 
