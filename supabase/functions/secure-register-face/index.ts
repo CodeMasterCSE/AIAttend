@@ -39,6 +39,35 @@ function extractBase64(imageBase64: string): { mimeType: string; data: string } 
   return { mimeType, data: base64Data };
 }
 
+// Helper function to add delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper function with retry logic for rate limits
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+  baseDelay = 2000
+): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    if (response.status === 429) {
+      if (attempt < maxRetries - 1) {
+        const waitTime = baseDelay * Math.pow(2, attempt); // Exponential backoff
+        console.log(`Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+        await delay(waitTime);
+        continue;
+      }
+      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+    }
+    
+    return response;
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 async function analyzeFaceImage(
   imageBase64: string, 
   expectedAngle: string,
@@ -46,7 +75,7 @@ async function analyzeFaceImage(
 ): Promise<FaceAnalysis> {
   const { mimeType, data } = extractBase64(imageBase64);
   
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -191,19 +220,20 @@ async function checkForDuplicates(
     return { isDuplicate: false };
   }
 
-  // Use AI to compare embeddings
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a face embedding comparison system. Compare the new facial signature data against existing face data to detect duplicates.
+  // Use AI to compare embeddings with retry logic
+  try {
+    const response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a face embedding comparison system. Compare the new facial signature data against existing face data to detect duplicates.
 
 COMPARISON MODE:
 - Compare the current facial signatures with the references
@@ -211,33 +241,31 @@ COMPARISON MODE:
 - Consider it a match ONLY if similarity ≥ 85
 
 Return JSON: { "is_duplicate": boolean, "highest_similarity": number (0-100), "matched_index": number or null }`
-        },
-        {
-          role: 'user',
-          content: `New face data:
+          },
+          {
+            role: 'user',
+            content: `New face data:
 ${newEmbedding}
 
 Existing face data (array):
 ${JSON.stringify(existingEmbeddings.map((e: any, i: number) => ({ index: i, embedding: e.embedding })))}`
-        }
-      ],
-    }),
-  });
+          }
+        ],
+      }),
+    });
 
-  if (!response.ok) {
-    // If comparison fails, allow registration but log warning
-    console.warn('Duplicate check failed, allowing registration');
-    return { isDuplicate: false };
-  }
+    if (!response.ok) {
+      console.warn('Duplicate check failed, allowing registration');
+      return { isDuplicate: false };
+    }
 
-  const aiData = await response.json();
-  const content = aiData.choices?.[0]?.message?.content;
-  
-  if (!content) {
-    return { isDuplicate: false };
-  }
+    const aiData = await response.json();
+    const content = aiData.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      return { isDuplicate: false };
+    }
 
-  try {
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const result = JSON.parse(cleanContent);
     
@@ -247,8 +275,8 @@ ${JSON.stringify(existingEmbeddings.map((e: any, i: number) => ({ index: i, embe
         matchedUserId: existingEmbeddings[result.matched_index]?.user_id 
       };
     }
-  } catch {
-    // Parse error, allow registration
+  } catch (err) {
+    console.warn('Duplicate check error, allowing registration:', err);
   }
 
   return { isDuplicate: false };
@@ -317,9 +345,15 @@ serve(async (req) => {
       { key: 'blink', expected: 'front facing with natural expression' },
     ];
 
-    for (const angle of angles) {
+    for (let i = 0; i < angles.length; i++) {
+      const angle = angles[i];
       const imageData = captures[angle.key as keyof CaptureData];
       if (!imageData) continue;
+      
+      // Add delay between AI calls to avoid rate limiting (except for first call)
+      if (i > 0) {
+        await delay(1500);
+      }
       
       console.log(`Analyzing ${angle.key} capture...`);
       angleAnalysis[angle.key] = await analyzeFaceImage(imageData, angle.expected, LOVABLE_API_KEY);
