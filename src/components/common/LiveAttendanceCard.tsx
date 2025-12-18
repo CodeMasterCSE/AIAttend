@@ -12,7 +12,7 @@ interface AttendanceRecordWithStudent {
   studentPhotoUrl?: string;
   timestamp: Date;
   methodUsed: 'face' | 'qr' | 'proximity' | 'manual';
-  status: 'present' | 'absent' | 'late';
+  status: 'present' | 'absent';
 }
 
 interface LiveAttendanceCardProps {
@@ -29,7 +29,6 @@ const methodIcons = {
 
 const statusColors = {
   present: 'bg-success/10 text-success border-success/20',
-  late: 'bg-warning/10 text-warning border-warning/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 

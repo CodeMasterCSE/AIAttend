@@ -46,17 +46,16 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/20">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-                <ScanFace className="w-6 h-6 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                <ScanFace className="w-5 h-5 text-primary-foreground" />
               </div>
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full animate-pulse" />
             </div>
             <div>
-              <span className="font-bold text-xl block">AttendEase</span>
-              <span className="text-xs text-muted-foreground">RCCIIT</span>
+              <span className="font-bold text-lg md:text-xl block">AttendEase</span>
             </div>
           </Link>
           <div className="flex items-center gap-3">
@@ -89,27 +88,26 @@ export default function LandingPage() {
                 <span>AI-Powered Attendance System</span>
               </div>
               
-              <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05]">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.05]">
                 Smart
                 <br />
                 <span className="gradient-text">Attendance</span>
                 <br />
-                <span className="text-5xl md:text-6xl lg:text-7xl">for RCCIIT</span>
               </h1>
               
-              <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed max-w-xl">
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xl">
                 Transform your attendance tracking with cutting-edge AI technology. 
                 Fast, secure, and effortless for students and faculty.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Button variant="gradient" size="xl" asChild className="group text-lg px-10 py-7 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">
+                <Button variant="gradient" size="xl" asChild className="group text-base md:text-lg px-10 py-6 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">
                   <Link to="/login">
                     Mark My Attendance
                     <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="xl" asChild className="text-lg px-10 py-7 border-2 hover:bg-secondary/50 hover:scale-105 transition-transform">
+                <Button variant="outline" size="xl" asChild className="text-base md:text-lg px-10 py-6 border-2 hover:bg-secondary/50 hover:scale-105 transition-transform">
                   <Link to="/register">Create Account</Link>
                 </Button>
               </div>
@@ -153,16 +151,16 @@ export default function LandingPage() {
       <section className="py-24 px-6 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/5 to-background" />
         <div className="container mx-auto max-w-7xl relative z-10">
-          <div className="text-center max-w-3xl mx-auto mb-20">
+          <div className="text-center max-w-3xl mx-auto mb-16">
             <div className="inline-block mb-4">
               <span className="text-sm font-bold text-primary px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
                 FEATURES
               </span>
             </div>
-            <h2 className="text-5xl md:text-6xl font-extrabold mb-6">
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
               Everything You Need
             </h2>
-            <p className="text-xl text-muted-foreground leading-relaxed">
+            <p className="text-lg text-muted-foreground leading-relaxed">
               Comprehensive features designed for modern educational institutions.
             </p>
           </div>
@@ -191,16 +189,16 @@ export default function LandingPage() {
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background to-secondary/10" />
         <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="text-center mb-20">
+          <div className="text-center mb-16">
             <div className="inline-block mb-4">
               <span className="text-sm font-bold text-primary px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
                 PROCESS
               </span>
             </div>
-            <h2 className="text-5xl md:text-6xl font-extrabold mb-6">
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
               How It Works
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Get started in three simple steps
             </p>
           </div>
@@ -247,7 +245,7 @@ export default function LandingPage() {
                       <div className="w-20 h-20 rounded-2xl gradient-bg flex items-center justify-center mb-6 shadow-xl mx-auto">
                         <step.icon className="w-10 h-10 text-primary-foreground" />
                       </div>
-                      <h3 className="text-2xl font-bold mb-4 text-center">{step.title}</h3>
+                      <h3 className="text-xl font-bold mb-3 text-center">{step.title}</h3>
                       <p className="text-muted-foreground leading-relaxed text-center">{step.description}</p>
                     </div>
                   </div>
@@ -277,22 +275,22 @@ export default function LandingPage() {
                 <PlayCircle className="w-4 h-4" />
                 <span className="text-sm font-semibold">Get Started Today</span>
               </div>
-              <h2 className="text-4xl md:text-5xl font-extrabold mb-6">
+              <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
                 Ready to Transform
                 <br />
-                <span className="text-3xl md:text-4xl">Your Attendance System?</span>
+                <span className="text-2xl md:text-3xl">Your Attendance System?</span>
               </h2>
-              <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto leading-relaxed">
                 Join the future of attendance tracking. Sign up today and experience the difference.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button size="xl" variant="glass" asChild className="bg-white/20 hover:bg-white/30 border-2 border-white/40 text-white text-lg px-10 py-7 hover:scale-105 transition-transform shadow-xl">
+                <Button size="xl" variant="glass" asChild className="bg-white/20 hover:bg-white/30 border-2 border-white/40 text-white text-base md:text-lg px-10 py-6 hover:scale-105 transition-transform shadow-xl">
                   <Link to="/register" className="flex items-center gap-2">
                     <GraduationCap className="w-5 h-5" />
                     Student Sign Up
                   </Link>
                 </Button>
-                <Button size="xl" variant="glass" asChild className="bg-white/20 hover:bg-white/30 border-2 border-white/40 text-white text-lg px-10 py-7 hover:scale-105 transition-transform shadow-xl">
+                <Button size="xl" variant="glass" asChild className="bg-white/20 hover:bg-white/30 border-2 border-white/40 text-white text-base md:text-lg px-10 py-6 hover:scale-105 transition-transform shadow-xl">
                   <Link to="/register" className="flex items-center gap-2">
                     <UserCog className="w-5 h-5" />
                     Faculty Sign Up
@@ -314,7 +312,7 @@ export default function LandingPage() {
                 <ScanFace className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <span className="font-bold text-xl block">AttendEase</span>
+              <span className="font-bold text-lg md:text-xl block">AttendEase</span>
                 <span className="text-sm text-muted-foreground">RCCIIT Attendance System</span>
               </div>
             </div>

@@ -83,6 +83,19 @@ export function useClasses() {
     return data;
   };
 
+  const deleteClass = async (classId: string) => {
+    if (!user) throw new Error('Not authenticated');
+
+    const { error: deleteError } = await supabase
+      .from('classes')
+      .delete()
+      .eq('id', classId);
+
+    if (deleteError) throw deleteError;
+
+    setClasses((prev) => prev.filter((cls) => cls.id !== classId));
+  };
+
   useEffect(() => {
     fetchClasses();
   }, [user]);
@@ -93,6 +106,7 @@ export function useClasses() {
     error,
     createClass,
     updateClass,
+    deleteClass,
     refreshClasses: fetchClasses,
   };
 }

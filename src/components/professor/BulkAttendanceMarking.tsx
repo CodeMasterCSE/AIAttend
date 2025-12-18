@@ -54,7 +54,7 @@ export function BulkAttendanceMarking({ classId, sessionId, className, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [students, setStudents] = useState<EnrolledStudent[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
-  const [attendanceStatus, setAttendanceStatus] = useState<'present' | 'late'>('present');
+  const [attendanceStatus, setAttendanceStatus] = useState<'present' | 'absent'>('present');
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -197,13 +197,13 @@ export function BulkAttendanceMarking({ classId, sessionId, className, onSuccess
             {/* Status Selection */}
             <div className="flex items-center gap-4">
               <Label>Mark as:</Label>
-              <Select value={attendanceStatus} onValueChange={(v: 'present' | 'late') => setAttendanceStatus(v)}>
+              <Select value={attendanceStatus} onValueChange={(v: 'present' | 'absent') => setAttendanceStatus(v)}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="present">Present</SelectItem>
-                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
                 </SelectContent>
               </Select>
             </div>

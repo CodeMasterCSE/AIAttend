@@ -54,7 +54,7 @@ export interface AttendanceRecord {
   studentId: string;
   timestamp: Date;
   methodUsed: 'face' | 'qr' | 'proximity' | 'manual';
-  status: 'present' | 'absent' | 'late';
+  status: 'present' | 'absent';
   verificationScore?: number;
 }
 
@@ -93,6 +93,5 @@ export interface StudentAttendanceStats {
   rollNumber: string;
   totalPresent: number;
   totalAbsent: number;
-  totalLate: number;
   attendancePercentage: number;
 }

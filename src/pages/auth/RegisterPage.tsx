@@ -27,16 +27,32 @@ export default function RegisterPage() {
   const handleChange = (field: string, value: string) => {
     setFormData(prev => {
       let updatedData = { ...prev, [field]: value };
-      
-    
-      // Automatically update email based on department and roll number
-      if (updatedData.department && updatedData.rollNumber) {
-        const rollNumberLowerCase = updatedData.rollNumber.toLowerCase(); 
-        updatedData.email = `${rollNumberLowerCase}@rcciit.org.in`;
-      } else {
-        updatedData.email = ''; // Clear email if department or roll number is empty
+
+      // If role changes, only auto-generate email for students
+      if (field === 'role') {
+        if (value === 'student') {
+          if (updatedData.department && updatedData.rollNumber) {
+            const rollNumberLowerCase = updatedData.rollNumber.toLowerCase();
+            updatedData.email = `${rollNumberLowerCase}@rcciit.org.in`;
+          } else {
+            updatedData.email = '';
+          }
+        }
+        // For professor, keep whatever email the user types; no auto-generation
+        return updatedData;
       }
 
+      // For students, keep auto-email behavior based on department + roll number
+      if (updatedData.role === 'student' && (field === 'department' || field === 'rollNumber')) {
+        if (updatedData.department && updatedData.rollNumber) {
+          const rollNumberLowerCase = updatedData.rollNumber.toLowerCase();
+          updatedData.email = `${rollNumberLowerCase}@rcciit.org.in`;
+        } else {
+          updatedData.email = '';
+        }
+      }
+
+      // For professors, email is fully free-text (only changed when field === 'email')
       return updatedData;
     });
   };
@@ -252,7 +268,7 @@ export default function RegisterPage() {
                     id="rollNumber"
                     placeholder="departmentrollno"
                     value={formData.rollNumber}
-                    onChange={(e) => handleChange('rollNumber', e.target.value)}
+                    onChange={(e) => handleChange('rollNumber', e.target.value.toUpperCase())}
                     className="pl-10"
                     maxLength={50}
                   />
@@ -267,15 +283,22 @@ export default function RegisterPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="departmentrollno@rcciit.org.in"
+                  placeholder={formData.role === 'student' ? 'departmentrollno@rcciit.org.in' : 'name@example.com'}
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   className="pl-10"
                   required
                   autoComplete="email"
                   maxLength={255}
+                  // Students get an auto-generated institutional email; professors can type any email.
+                  readOnly={formData.role === 'student'}
                 />
               </div>
+              {formData.role === 'student' && (
+                <p className="text-xs text-muted-foreground">
+                  Your institutional email is generated automatically from your roll number.
+                </p>
+              )}
             </div>
 
             {formData.role === 'professor' && (

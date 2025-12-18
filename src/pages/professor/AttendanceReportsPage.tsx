@@ -33,7 +33,6 @@ const methodIcons: Record<string, any> = {
 
 const statusColors: Record<string, string> = {
   present: 'bg-success/10 text-success border-success/20',
-  late: 'bg-warning/10 text-warning border-warning/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
@@ -47,8 +46,7 @@ export default function AttendanceReportsPage() {
   const stats = {
     total: records.length,
     present: records.filter((r) => r.status === 'present').length,
-    late: records.filter((r) => r.status === 'late').length,
-    absent: records.filter((r) => r.status === 'absent').length,
+    absent: records.filter((r) => r.status === 'absent' || r.status === 'late').length,
   };
 
   const methodStats = {
@@ -119,7 +117,7 @@ export default function AttendanceReportsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -143,20 +141,6 @@ export default function AttendanceReportsPage() {
                 <div>
                   <p className="text-2xl font-bold">{stats.present}</p>
                   <p className="text-sm text-muted-foreground">Present</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-warning/10">
-                  <Calendar className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.late}</p>
-                  <p className="text-sm text-muted-foreground">Late</p>
                 </div>
               </div>
             </CardContent>

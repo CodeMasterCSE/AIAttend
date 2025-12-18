@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { QRCodeDisplay } from '@/components/attendance/QRCodeDisplay';
+import { LiveAttendanceCard } from '@/components/common/LiveAttendanceCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useClasses } from '@/hooks/useClasses';
 import { useAttendanceSessions } from '@/hooks/useAttendanceSessions';
+import { useAttendanceRecords } from '@/hooks/useAttendanceRecords';
 import { useToast } from '@/hooks/use-toast';
 import { 
   QrCode, 
@@ -25,6 +27,31 @@ import {
 } from 'lucide-react';
 import { BulkAttendanceMarking } from '@/components/professor/BulkAttendanceMarking';
 import { ScheduledSessionStarter } from '@/components/professor/ScheduledSessionStarter';
+import { supabase } from '@/integrations/supabase/client';
+
+interface SessionLiveCheckinsProps {
+  sessionId: string;
+}
+
+function SessionLiveCheckins({ sessionId }: SessionLiveCheckinsProps) {
+  const { records } = useAttendanceRecords(undefined, sessionId);
+
+  return (
+    <LiveAttendanceCard
+      className="max-w-4xl mx-auto"
+      records={records.map((r) => ({
+        id: r.id,
+        studentId: r.student_id,
+        studentName: r.student?.name,
+        studentRollNumber: r.student?.roll_number || undefined,
+        studentPhotoUrl: r.student?.photo_url || undefined,
+        timestamp: new Date(r.timestamp),
+        methodUsed: (r.method_used as 'face' | 'qr' | 'proximity' | 'manual') || 'manual',
+        status: r.status === 'present' ? 'present' : 'absent',
+      }))}
+    />
+  );
+}
 
 export default function QRSessionsPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -136,8 +163,37 @@ export default function QRSessionsPage() {
     if (!activeSession) return;
 
     try {
+      // Automatically mark all other enrolled students as absent for this session
+      if (selectedClassId) {
+        const { data: enrollments } = await supabase
+          .from('class_enrollments')
+          .select('student_id')
+          .eq('class_id', selectedClassId);
+
+        const { data: existingRecords } = await supabase
+          .from('attendance_records')
+          .select('student_id')
+          .eq('session_id', activeSession.id);
+
+        const presentIds = new Set((existingRecords || []).map((r) => r.student_id));
+        const toInsert =
+          enrollments
+            ?.filter((e) => !presentIds.has(e.student_id))
+            .map((e) => ({
+              session_id: activeSession.id,
+              class_id: selectedClassId,
+              student_id: e.student_id,
+              status: 'absent',
+              method_used: 'manual',
+            })) || [];
+
+        if (toInsert.length) {
+          await supabase.from('attendance_records').insert(toInsert);
+        }
+      }
+
       await endSession(activeSession.id);
-      toast({ title: 'Session ended', description: 'Attendance session has been closed' });
+      toast({ title: 'Session ended', description: 'Attendance session has been closed. Unmarked students were set as absent.' });
     } catch (error) {
       console.error('Error ending session:', error);
       toast({ title: 'Error', description: 'Failed to end session', variant: 'destructive' });
@@ -294,30 +350,17 @@ export default function QRSessionsPage() {
           </Card>
         )}
 
-        {/* QR Code Display */}
+        {/* QR Code Display & Live Check-ins */}
         {activeSession && selectedClass && (
-          <QRCodeDisplay 
-            sessionId={activeSession.id} 
-            className={`${selectedClass.subject} (${selectedClass.code})`}
-          />
-        )}
+          <div className="space-y-6">
+            <QRCodeDisplay 
+              sessionId={activeSession.id} 
+              className={`${selectedClass.subject} (${selectedClass.code})`}
+            />
 
-        {/* Instructions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>How it works</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Select a class from the dropdown above</li>
-              <li>Click "Start Attendance Session" to generate a QR code</li>
-              <li>Display the QR code on your screen for students to scan</li>
-              <li>The QR code auto-refreshes every 30 seconds for security</li>
-              <li>Students scan with their phone camera to check in</li>
-              <li>Click "End Session" when done taking attendance</li>
-            </ol>
-          </CardContent>
-        </Card>
+            <SessionLiveCheckins sessionId={activeSession.id} />
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

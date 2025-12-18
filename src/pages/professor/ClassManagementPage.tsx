@@ -17,6 +17,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -51,7 +61,7 @@ import { BulkStudentImport } from '@/components/professor/BulkStudentImport';
 import { ScheduleManager } from '@/components/professor/ScheduleManager';
 
 export default function ClassManagementPage() {
-  const { classes, isLoading: classesLoading, createClass, updateClass, refreshClasses } = useClasses();
+  const { classes, isLoading: classesLoading, createClass, updateClass, deleteClass, refreshClasses } = useClasses();
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const { enrollments, isLoading: enrollmentsLoading, enrollStudent, removeEnrollment } = useEnrollments(selectedClass?.id);
   
@@ -59,6 +69,7 @@ export default function ClassManagementPage() {
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   
   const [newClass, setNewClass] = useState({
     subject: '',
@@ -72,6 +83,23 @@ export default function ClassManagementPage() {
   });
   
   const [studentEmail, setStudentEmail] = useState('');
+
+  const handleConfirmDeleteClass = async () => {
+    if (!classToDelete) return;
+
+    try {
+      await deleteClass(classToDelete.id);
+      toast.success('Class deleted successfully');
+      if (selectedClass?.id === classToDelete.id) {
+        setSelectedClass(null);
+      }
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast.error('Failed to delete class');
+    } finally {
+      setClassToDelete(null);
+    }
+  };
 
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,17 +303,30 @@ export default function ClassManagementPage() {
                     onClick={() => setSelectedClass(cls)}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div>
                           <Badge variant="outline" className="mb-2">{cls.code}</Badge>
                           <h3 className="font-medium">{cls.subject}</h3>
                         </div>
-                        {cls.latitude && cls.longitude && (
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <Navigation className="w-3 h-3" />
-                            GPS
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {cls.latitude && cls.longitude && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Navigation className="w-3 h-3" />
+                              GPS
+                            </Badge>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setClassToDelete(cls);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -493,6 +534,31 @@ export default function ClassManagementPage() {
             )}
           </div>
         </div>
+
+        {/* Delete confirmation dialog */}
+        <AlertDialog open={!!classToDelete} onOpenChange={(open) => !open && setClassToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete class?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete{' '}
+                <span className="font-semibold text-foreground">
+                  {classToDelete?.subject} ({classToDelete?.code})
+                </span>
+                . This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setClassToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleConfirmDeleteClass}
+              >
+                Delete Class
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

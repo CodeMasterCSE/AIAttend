@@ -20,18 +20,21 @@ interface AttendanceRecord {
   };
 }
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 export default function AttendanceHistoryPage() {
   const { user } = useAuth();
   const { enrollments } = useEnrollments();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   useEffect(() => {
     const fetchAttendanceRecords = async () => {
       if (!user?.id) return;
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('attendance_records')
           .select(`
             id,
@@ -47,6 +50,11 @@ export default function AttendanceHistoryPage() {
           .eq('student_id', user.id)
           .order('timestamp', { ascending: false });
 
+        if (selectedClassId !== 'all') {
+          query = query.eq('class_id', selectedClassId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         setRecords(data || []);
       } catch (error) {
@@ -57,7 +65,7 @@ export default function AttendanceHistoryPage() {
     };
 
     fetchAttendanceRecords();
-  }, [user?.id]);
+  }, [user?.id,selectedClassId]);
 
   const getMethodIcon = (method: string) => {
     switch (method) {
@@ -82,9 +90,28 @@ export default function AttendanceHistoryPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Attendance History</h1>
-          <p className="text-muted-foreground">View your attendance records across all classes</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">Attendance History</h1>
+            <p className="text-muted-foreground">View your attendance records across all classes</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {enrollments.map((e) => (
+                  e.classes ? (
+                    <SelectItem key={e.classes.code} value={e.classes.code}>
+                      {e.classes.subject}
+                    </SelectItem>
+                  ) : null
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {isLoading ? (

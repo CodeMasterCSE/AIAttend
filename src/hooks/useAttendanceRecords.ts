@@ -96,6 +96,18 @@ export function useAttendanceRecords(classId?: string, sessionId?: string) {
     fetchRecords();
   }, [user, classId, sessionId]);
 
+  // Lightweight polling to ensure "live" updates during an active session,
+  // even if realtime subscriptions are not firing for some reason.
+  useEffect(() => {
+    if (!user || !sessionId) return;
+
+    const interval = setInterval(() => {
+      fetchRecords();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [user, sessionId]);
+
   // Real-time subscription for new records
   useEffect(() => {
     if (!user) return;

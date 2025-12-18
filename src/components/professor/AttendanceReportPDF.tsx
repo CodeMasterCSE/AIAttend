@@ -8,7 +8,6 @@ interface StudentStats {
   name: string;
   rollNumber: string;
   present: number;
-  late: number;
   absent: number;
   total: number;
   percentage: number;
@@ -76,8 +75,7 @@ export function AttendanceReportPDF({
     // Stats Summary
     const stats = {
       present: records.filter(r => r.status === 'present').length,
-      late: records.filter(r => r.status === 'late').length,
-      absent: records.filter(r => r.status === 'absent').length,
+      absent: records.filter(r => r.status === 'absent' || r.status === 'late').length,
     };
 
     const methodStats = {
@@ -96,7 +94,7 @@ export function AttendanceReportPDF({
     const barY = 78;
     const barHeight = 8;
     const maxBarWidth = 80;
-    const total = stats.present + stats.late + stats.absent || 1;
+    const total = stats.present + stats.absent || 1;
 
     // Present bar
     doc.setFillColor(34, 197, 94); // Green
@@ -106,17 +104,11 @@ export function AttendanceReportPDF({
     doc.setFont('helvetica', 'normal');
     doc.text(`Present: ${stats.present} (${Math.round((stats.present / total) * 100)}%)`, 100, barY + 6);
 
-    // Late bar
-    doc.setFillColor(234, 179, 8); // Yellow
-    const lateWidth = (stats.late / total) * maxBarWidth;
-    doc.rect(14, barY + 12, lateWidth, barHeight, 'F');
-    doc.text(`Late: ${stats.late} (${Math.round((stats.late / total) * 100)}%)`, 100, barY + 18);
-
     // Absent bar
     doc.setFillColor(239, 68, 68); // Red
     const absentWidth = (stats.absent / total) * maxBarWidth;
-    doc.rect(14, barY + 24, absentWidth, barHeight, 'F');
-    doc.text(`Absent: ${stats.absent} (${Math.round((stats.absent / total) * 100)}%)`, 100, barY + 30);
+    doc.rect(14, barY + 12, absentWidth, barHeight, 'F');
+    doc.text(`Absent: ${stats.absent} (${Math.round((stats.absent / total) * 100)}%)`, 100, barY + 18);
 
     // Method Distribution
     doc.setFontSize(14);
@@ -143,21 +135,21 @@ export function AttendanceReportPDF({
       const studentId = record.student_id;
       const existing = studentMap.get(studentId);
       
+      const isPresent = record.status === 'present';
+
       if (existing) {
         existing.total++;
-        if (record.status === 'present') existing.present++;
-        else if (record.status === 'late') existing.late++;
+        if (isPresent) existing.present++;
         else existing.absent++;
-        existing.percentage = Math.round(((existing.present + existing.late) / existing.total) * 100);
+        existing.percentage = Math.round((existing.present / existing.total) * 100);
       } else {
         studentMap.set(studentId, {
           name: record.student?.name || 'Unknown',
           rollNumber: record.student?.roll_number || '-',
-          present: record.status === 'present' ? 1 : 0,
-          late: record.status === 'late' ? 1 : 0,
-          absent: record.status === 'absent' ? 1 : 0,
+          present: isPresent ? 1 : 0,
+          absent: isPresent ? 0 : 1,
           total: 1,
-          percentage: record.status !== 'absent' ? 100 : 0,
+          percentage: isPresent ? 100 : 0,
         });
       }
     });
@@ -177,12 +169,11 @@ export function AttendanceReportPDF({
 
     autoTable(doc, {
       startY: 35,
-      head: [['Name', 'Roll No.', 'Present', 'Late', 'Absent', 'Total', 'Attendance %']],
+      head: [['Name', 'Roll No.', 'Present', 'Absent', 'Total', 'Attendance %']],
       body: studentStats.map(s => [
         s.name,
         s.rollNumber,
         s.present.toString(),
-        s.late.toString(),
         s.absent.toString(),
         s.total.toString(),
         `${s.percentage}%`,
@@ -243,8 +234,6 @@ export function AttendanceReportPDF({
           const status = (data.cell.raw as string).toLowerCase();
           if (status === 'present') {
             data.cell.styles.textColor = [34, 197, 94];
-          } else if (status === 'late') {
-            data.cell.styles.textColor = [234, 179, 8];
           } else {
             data.cell.styles.textColor = [239, 68, 68];
           }
