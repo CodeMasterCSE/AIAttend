@@ -88,8 +88,9 @@ serve(async (req) => {
 
     if (createError) {
       console.error("Error creating user:", createError);
+      // Return generic error to client, log details server-side only
       return new Response(
-        JSON.stringify({ success: false, error: createError.message }),
+        JSON.stringify({ success: false, error: "Unable to create user. Please check the provided details and try again." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -107,9 +108,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Server error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    // Return generic error to client, log details server-side only
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: "An unexpected error occurred. Please try again later." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
