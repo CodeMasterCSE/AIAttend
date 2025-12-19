@@ -119,19 +119,21 @@ Respond ONLY with valid JSON in this format:
     let queryResult: any[] = [];
     let queryError: string | null = null;
 
-    // Validate userId is a valid UUID to prevent any injection attempts
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      console.error("[Chatbot] Invalid userId format:", userId);
-      return new Response(JSON.stringify({ 
-        error: "Invalid user ID format",
-        response: "I couldn't verify your identity. Please try logging in again." 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Build role-based access filter
+    const buildAccessFilter = () => {
+      switch (userRole) {
+        case 'admin':
+          return ''; // Full access
+        case 'professor':
+          return `AND c.professor_id = '${userId}'`;
+        case 'student':
+          return `AND ar.student_id = '${userId}'`;
+        default:
+          return `AND 1=0`; // Deny by default
+      }
+    };
 
+    const accessFilter = buildAccessFilter();
     const today = new Date().toISOString().split('T')[0];
 
     try {

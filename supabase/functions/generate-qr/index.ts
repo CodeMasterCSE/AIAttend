@@ -87,20 +87,11 @@ Deno.serve(async (req) => {
       expiresAt: timestamp + 30000, // 30 seconds validity
     };
 
-    // Sign the payload using HMAC with dedicated signing secret
-    const qrSigningSecret = Deno.env.get('QR_SIGNING_SECRET');
-    if (!qrSigningSecret) {
-      console.error('QR_SIGNING_SECRET is not configured');
-      return new Response(JSON.stringify({ error: 'Service configuration error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
+    // Sign the payload using HMAC
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(qrSigningSecret),
+      encoder.encode(supabaseServiceKey),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign']

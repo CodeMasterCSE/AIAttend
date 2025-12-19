@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { ScanFace, Mail, Lock, User, Building2, ArrowLeft, Loader2, Hash } from 'lucide-react';
 import { registerSchema } from '@/lib/validations/auth';
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -380,19 +379,6 @@ export default function RegisterPage() {
               <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
             </p>
           </form>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-            </div>
-          </div>
-
-          {/* Google Sign In */}
-          <GoogleSignInButton className="w-full" />
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">

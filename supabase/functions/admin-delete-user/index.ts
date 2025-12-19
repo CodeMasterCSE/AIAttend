@@ -70,9 +70,8 @@ serve(async (req) => {
 
     if (deleteError) {
       console.error("Error deleting user:", deleteError);
-      // Return generic error to client, log details server-side only
       return new Response(
-        JSON.stringify({ success: false, error: "Unable to delete user. Please try again later." }),
+        JSON.stringify({ success: false, error: deleteError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -84,9 +83,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Server error:", error);
-    // Return generic error to client, log details server-side only
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ success: false, error: "An unexpected error occurred. Please try again later." }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

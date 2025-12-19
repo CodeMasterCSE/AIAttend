@@ -33,7 +33,6 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
-  loginWithGoogle: () => Promise<{ error: Error | null }>;
   register: (
     email: string, 
     password: string, 
@@ -103,107 +102,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Ensure we have the minimum DB records required by the app after OAuth sign-in
-  // (Google sign-in creates an auth user but does not automatically create our app's profile/role rows.)
-  const ensureUserRecords = async (authUser: User) => {
-    const userId = authUser.id;
-    const email = authUser.email;
-
-    if (!email) return;
-
-    // 1) Profile
-    const { data: existingProfile, error: profileCheckError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (profileCheckError) {
-      console.error('Error checking profile:', profileCheckError);
-      return;
-    }
-
-    if (!existingProfile) {
-      const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
-      const nameFromMeta =
-        (typeof meta.full_name === 'string' && meta.full_name) ||
-        (typeof meta.name === 'string' && meta.name) ||
-        (typeof meta.given_name === 'string' && meta.given_name) ||
-        'New user';
-
-      const photoUrlFromMeta =
-        (typeof meta.avatar_url === 'string' && meta.avatar_url) ||
-        (typeof meta.picture === 'string' && meta.picture) ||
-        null;
-
-      const { error: createProfileError } = await supabase.from('profiles').insert({
-        user_id: userId,
-        email,
-        name: nameFromMeta,
-        photo_url: photoUrlFromMeta,
-      });
-
-      if (createProfileError) {
-        console.error('Error creating profile:', createProfileError);
-        return;
-      }
-    }
-
-    // 2) Role
-    const { data: existingRole, error: roleCheckError } = await supabase
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (roleCheckError) {
-      console.error('Error checking role:', roleCheckError);
-      return;
-    }
-
-    if (!existingRole) {
-      const { error: createRoleError } = await supabase.from('user_roles').insert({
-        user_id: userId,
-        role: 'student',
-      });
-
-      if (createRoleError) {
-        console.error('Error creating role:', createRoleError);
-      }
-    }
-  };
-
   useEffect(() => {
     // Set up auth state listener FIRST
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-
-      if (session?.user) {
-        // Defer DB calls with setTimeout to prevent deadlock
-        setTimeout(async () => {
-          await ensureUserRecords(session.user);
-          const userData = await fetchUserData(session.user.id);
-          setUser(userData);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Defer Supabase calls with setTimeout to prevent deadlock
+          setTimeout(async () => {
+            const userData = await fetchUserData(session.user.id);
+            setUser(userData);
+            setIsLoading(false);
+          }, 0);
+        } else {
+          setUser(null);
           setIsLoading(false);
-        }, 0);
-      } else {
-        setUser(null);
-        setIsLoading(false);
+        }
       }
-    });
+    );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        (async () => {
-          await ensureUserRecords(session.user);
-          const userData = await fetchUserData(session.user.id);
+        fetchUserData(session.user.id).then((userData) => {
           setUser(userData);
           setIsLoading(false);
-        })();
+        });
       } else {
         setIsLoading(false);
       }
@@ -217,31 +143,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
-
-      if (error) {
-        return { error };
-      }
-
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
-  const loginWithGoogle = async () => {
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
       });
 
       if (error) {
@@ -315,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, login, loginWithGoogle, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, session, isLoading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
