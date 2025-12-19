@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useClasses, Class } from '@/hooks/useClasses';
 import { useEnrollments } from '@/hooks/useEnrollments';
-import { LocationPicker } from '@/components/professor/LocationPicker';
+import { GoogleMapsLocationPicker } from '@/components/professor/GoogleMapsLocationPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -247,7 +247,7 @@ export default function ClassManagementPage() {
                   </div>
                 </div>
                 
-                <LocationPicker
+                <GoogleMapsLocationPicker
                   latitude={newClass.latitude}
                   longitude={newClass.longitude}
                   proximityRadius={newClass.proximity_radius_meters}
@@ -392,7 +392,7 @@ export default function ClassManagementPage() {
                               Set the GPS coordinates for proximity-based attendance
                             </DialogDescription>
                           </DialogHeader>
-                          <LocationPicker
+                          <GoogleMapsLocationPicker
                             latitude={selectedClass.latitude}
                             longitude={selectedClass.longitude}
                             proximityRadius={selectedClass.proximity_radius_meters}
