@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ScanFace, Mail, Lock, ArrowLeft, Loader2 } from 'lucide-react';
 import { loginSchema } from '@/lib/validations/auth';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -188,6 +189,19 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Google Sign In */}
+          <GoogleSignInButton className="w-full" />
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
