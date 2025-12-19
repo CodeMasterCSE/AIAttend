@@ -18,11 +18,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, UserCog, Loader2, BookOpen, Building } from 'lucide-react';
+import { Search, MoreVertical, UserCog, Loader2, BookOpen, Building, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddProfessorDialog } from '@/components/admin/AddProfessorDialog';
+import { EditProfessorDialog } from '@/components/admin/EditProfessorDialog';
 
 interface Professor {
   user_id: string;
@@ -39,6 +51,8 @@ export default function FacultyPage() {
   const [professors, setProfessors] = useState<Professor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
+  const [deletingProfessor, setDeletingProfessor] = useState<Professor | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,7 +71,7 @@ export default function FacultyPage() {
 
       if (roleData && roleData.length > 0) {
         const professorIds = roleData.map(r => r.user_id);
-        
+
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, name, email, employee_id, department, photo_url, created_at')
@@ -90,6 +104,33 @@ export default function FacultyPage() {
       toast({ title: 'Error', description: 'Failed to fetch faculty', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteProfessor = async () => {
+    if (!deletingProfessor) return;
+
+    try {
+      // Call admin-delete-user edge function
+      const response = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: deletingProfessor.user_id }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      toast({ title: 'Success', description: 'Faculty member deleted successfully' });
+      fetchProfessors();
+    } catch (error: any) {
+      console.error('Error deleting professor:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingProfessor(null);
     }
   };
 
@@ -233,6 +274,16 @@ export default function FacultyPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>View Details</DropdownMenuItem>
                             <DropdownMenuItem>View Classes</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setEditingProfessor(professor)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingProfessor(professor)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -243,6 +294,32 @@ export default function FacultyPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Dialog */}
+        <EditProfessorDialog
+          professor={editingProfessor}
+          open={!!editingProfessor}
+          onOpenChange={(open) => !open && setEditingProfessor(null)}
+          onSuccess={fetchProfessors}
+        />
+
+        {/* Delete Alert */}
+        <AlertDialog open={!!deletingProfessor} onOpenChange={(open) => !open && setDeletingProfessor(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the faculty account for {deletingProfessor?.name} and remove all their data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteProfessor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

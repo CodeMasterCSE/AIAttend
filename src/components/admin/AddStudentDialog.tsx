@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DEPARTMENTS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Loader2 } from 'lucide-react';
@@ -22,6 +24,12 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
     roll_number: '',
   });
   const { toast } = useToast();
+
+  const handleRollNumberChange = (value: string) => {
+    const rollNumber = value.toUpperCase();
+    const email = rollNumber ? `${rollNumber.toLowerCase()}@rcciit.org.in` : '';
+    setFormData(prev => ({ ...prev, roll_number: rollNumber, email }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +95,33 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="department">Department</Label>
+            <Select
+              value={formData.department}
+              onValueChange={(value) => setFormData({ ...formData, department: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                {DEPARTMENTS.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="roll_number">Roll Number</Label>
+            <Input
+              id="roll_number"
+              value={formData.roll_number}
+              onChange={(e) => handleRollNumberChange(e.target.value)}
+              placeholder="e.g. CSE2024001"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
@@ -94,7 +129,12 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
+              readOnly
+              className="bg-muted"
             />
+            <p className="text-xs text-muted-foreground">
+              Auto-generated from roll number
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password *</Label>
@@ -105,22 +145,6 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
               minLength={6}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="department">Department</Label>
-            <Input
-              id="department"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="roll_number">Roll Number</Label>
-            <Input
-              id="roll_number"
-              value={formData.roll_number}
-              onChange={(e) => setFormData({ ...formData, roll_number: e.target.value })}
             />
           </div>
           <div className="flex justify-end gap-3">

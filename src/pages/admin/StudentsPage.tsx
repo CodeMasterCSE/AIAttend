@@ -18,11 +18,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, GraduationCap, Loader2, Mail, Building } from 'lucide-react';
+import { Search, MoreVertical, GraduationCap, Loader2, Mail, Building, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddStudentDialog } from '@/components/admin/AddStudentDialog';
+import { EditStudentDialog } from '@/components/admin/EditStudentDialog';
 
 interface Student {
   user_id: string;
@@ -38,6 +50,8 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,7 +70,7 @@ export default function StudentsPage() {
 
       if (roleData && roleData.length > 0) {
         const studentIds = roleData.map(r => r.user_id);
-        
+
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, name, email, roll_number, department, photo_url, created_at')
@@ -73,6 +87,33 @@ export default function StudentsPage() {
       toast({ title: 'Error', description: 'Failed to fetch students', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!deletingStudent) return;
+
+    try {
+      // Call admin-delete-user edge function
+      const response = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: deletingStudent.user_id }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      toast({ title: 'Success', description: 'Student deleted successfully' });
+      fetchStudents();
+    } catch (error: any) {
+      console.error('Error deleting student:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingStudent(null);
     }
   };
 
@@ -210,6 +251,16 @@ export default function StudentsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>View Details</DropdownMenuItem>
                             <DropdownMenuItem>View Attendance</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setEditingStudent(student)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingStudent(student)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -220,6 +271,32 @@ export default function StudentsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Dialog */}
+        <EditStudentDialog
+          student={editingStudent}
+          open={!!editingStudent}
+          onOpenChange={(open) => !open && setEditingStudent(null)}
+          onSuccess={fetchStudents}
+        />
+
+        {/* Delete Alert */}
+        <AlertDialog open={!!deletingStudent} onOpenChange={(open) => !open && setDeletingStudent(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the student account for {deletingStudent?.name} and remove all their data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteStudent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

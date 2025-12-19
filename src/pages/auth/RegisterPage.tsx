@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate with Zod schema
     const result = registerSchema.safeParse(formData);
     if (!result.success) {
@@ -73,12 +73,12 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-    
+
     try {
       const { error } = await register(
-        result.data.email, 
-        result.data.password, 
-        result.data.name, 
+        result.data.email,
+        result.data.password,
+        result.data.name,
         result.data.role,
         {
           department: result.data.department || '',
@@ -89,7 +89,7 @@ export default function RegisterPage() {
 
       if (error) {
         let errorMessage = "Please try again or contact support.";
-        
+
         if (error.message.includes('User already registered')) {
           errorMessage = "An account with this email already exists. Please sign in.";
         } else if (error.message.includes('Password')) {
@@ -97,7 +97,7 @@ export default function RegisterPage() {
         } else if (error.message.includes('Email')) {
           errorMessage = error.message;
         }
-        
+
         toast({
           title: "Registration failed",
           description: errorMessage,
@@ -183,7 +183,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      
+
       {/* Right Panel - Registration Form */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12 bg-background overflow-y-auto">
         <div className="w-full max-w-md space-y-6 animate-fade-in py-8">
@@ -194,8 +194,8 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -209,7 +209,7 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          
+
           <form onSubmit={handleRegister} className="space-y-5">
             {/* Other form fields */}
             <div className="space-y-2">
@@ -355,10 +355,10 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              variant="gradient" 
-              size="lg" 
+            <Button
+              type="submit"
+              variant="gradient"
+              size="lg"
               className="w-full"
               disabled={isLoading}
             >
@@ -390,7 +390,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>
+  );
 }
-          

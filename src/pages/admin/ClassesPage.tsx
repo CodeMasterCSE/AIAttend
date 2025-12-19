@@ -17,12 +17,24 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin } from 'lucide-react';
+import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddClassDialog } from '@/components/admin/AddClassDialog';
 import { ManageClassEnrollmentsDialog } from '@/components/admin/ManageClassEnrollmentsDialog';
+import { EditClassDialog } from '@/components/admin/EditClassDialog';
 
 interface ClassData {
   id: string;
@@ -42,6 +54,8 @@ export default function AdminClassesPage() {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingClass, setEditingClass] = useState<ClassData | null>(null);
+  const [deletingClass, setDeletingClass] = useState<ClassData | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -95,6 +109,48 @@ export default function AdminClassesPage() {
       toast({ title: 'Error', description: 'Failed to fetch classes', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteClass = async () => {
+    if (!deletingClass) return;
+
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', deletingClass.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Class deleted successfully' });
+      fetchClasses();
+    } catch (error: any) {
+      console.error('Error deleting class:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingClass(null);
+    }
+  };
+
+  const handleRegenerateCode = async (classId: string, currentCode: string) => {
+    try {
+      const { data: newCode, error: rpcError } = await supabase.rpc('generate_join_code');
+
+      if (rpcError) throw rpcError;
+
+      const { error: updateError } = await supabase
+        .from('classes')
+        .update({ join_code: newCode })
+        .eq('id', classId);
+
+      if (updateError) throw updateError;
+
+      toast({ title: 'Success', description: 'Join code regenerated successfully' });
+      fetchClasses(); // Refresh list to show new code
+    } catch (error: any) {
+      console.error('Error regenerating code:', error);
+      toast({ title: 'Error', description: 'Failed to regenerate join code', variant: 'destructive' });
     }
   };
 
@@ -163,7 +219,7 @@ export default function AdminClassesPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {new Set(classes.map(c => c.department)).size}
+                    {new Set(classes.map(c => c.department.toLowerCase().trim())).size}
                   </p>
                   <p className="text-sm text-muted-foreground">Departments</p>
                 </div>
@@ -233,9 +289,13 @@ export default function AdminClassesPage() {
                         <Badge variant="secondary">{cls.enrollment_count}</Badge>
                       </TableCell>
                       <TableCell>
-                        <code className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                          {cls.join_code}
-                        </code>
+                        {cls.join_code ? (
+                          <code className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                            {cls.join_code}
+                          </code>
+                        ) : (
+                          <Badge variant="destructive">Missing</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -249,6 +309,21 @@ export default function AdminClassesPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem>View Details</DropdownMenuItem>
                               <DropdownMenuItem>View Sessions</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {!cls.join_code && (
+                                <DropdownMenuItem onClick={() => handleRegenerateCode(cls.id, cls.join_code)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Code
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => setEditingClass(cls)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeletingClass(cls)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -260,6 +335,32 @@ export default function AdminClassesPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Dialog */}
+        <EditClassDialog
+          classData={editingClass}
+          open={!!editingClass}
+          onOpenChange={(open) => !open && setEditingClass(null)}
+          onSuccess={fetchClasses}
+        />
+
+        {/* Delete Alert */}
+        <AlertDialog open={!!deletingClass} onOpenChange={(open) => !open && setDeletingClass(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the class "{deletingClass?.subject}" and all associated data including attendance records.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteClass} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
