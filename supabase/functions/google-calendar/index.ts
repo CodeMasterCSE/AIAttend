@@ -6,8 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
+const GOOGLE_CLIENT_ID_RAW = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
+const GOOGLE_CLIENT_SECRET_RAW = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+
+// Trim to avoid invisible whitespace/newline issues (very common when copy/pasting secrets)
+const GOOGLE_CLIENT_ID = GOOGLE_CLIENT_ID_RAW.trim();
+const GOOGLE_CLIENT_SECRET = GOOGLE_CLIENT_SECRET_RAW.trim();
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -75,6 +80,8 @@ serve(async (req) => {
       console.log('Starting token exchange', {
         clientIdMasked: maskId(GOOGLE_CLIENT_ID),
         redirectUri,
+        clientIdLen: GOOGLE_CLIENT_ID.length,
+        clientSecretLen: GOOGLE_CLIENT_SECRET.length,
       });
 
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
