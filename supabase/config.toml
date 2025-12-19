@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.admin-update-user]
 verify_jwt = true
+
+[functions.google-calendar]
+verify_jwt = true
+
+[functions.google-config]
+verify_jwt = false

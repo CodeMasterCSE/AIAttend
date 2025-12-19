@@ -1,7 +1,8 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WeeklyTimetable } from '@/components/student/WeeklyTimetable';
+import { GoogleCalendarSync } from '@/components/calendar/GoogleCalendarSync';
 import { useProfessorSchedules } from '@/hooks/useProfessorSchedules';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, Clock, MapPin } from 'lucide-react';
 
 export default function ProfessorTimetablePage() {
@@ -18,9 +19,12 @@ export default function ProfessorTimetablePage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold">My Timetable</h1>
-          <p className="text-muted-foreground">View your weekly teaching schedule</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">My Timetable</h1>
+            <p className="text-muted-foreground">View your weekly teaching schedule</p>
+          </div>
+          <GoogleCalendarSync schedules={schedules as any} />
         </div>
 
         {/* Quick Stats */}

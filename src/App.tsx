@@ -26,6 +26,7 @@ import FacultyPage from "./pages/admin/FacultyPage";
 import AdminClassesPage from "./pages/admin/ClassesPage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
 import ProfilePage from "./pages/ProfilePage";
+import CalendarCallback from "./pages/CalendarCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -98,6 +99,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/" element={<LandingRoute><LandingPage /></LandingRoute>} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+      <Route path="/calendar-callback" element={<CalendarCallback />} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
       {/* Student Routes */}
