@@ -11,6 +11,12 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+function maskId(id: string, visible = 6) {
+  if (!id) return '(empty)';
+  if (id.length <= visible * 2) return `${id.slice(0, 2)}…${id.slice(-2)}`;
+  return `${id.slice(0, visible)}…${id.slice(-visible)}`;
+}
+
 interface Schedule {
   id: string;
   day: string;
@@ -50,14 +56,34 @@ serve(async (req) => {
     console.log(`Google Calendar action: ${action} for user: ${user.id}`);
 
     if (action === 'exchange-code') {
+      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        console.error('Missing Google OAuth env vars', {
+          hasClientId: !!GOOGLE_CLIENT_ID,
+          hasClientSecret: !!GOOGLE_CLIENT_SECRET,
+          clientIdMasked: GOOGLE_CLIENT_ID ? maskId(GOOGLE_CLIENT_ID) : null,
+        });
+        return new Response(JSON.stringify({
+          error: 'google_oauth_not_configured',
+          message: 'Google OAuth is not configured on the backend.',
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Exchange authorization code for tokens
+      console.log('Starting token exchange', {
+        clientIdMasked: maskId(GOOGLE_CLIENT_ID),
+        redirectUri,
+      });
+
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           code,
-          client_id: GOOGLE_CLIENT_ID!,
-          client_secret: GOOGLE_CLIENT_SECRET!,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
           redirect_uri: redirectUri,
           grant_type: 'authorization_code',
         }),
@@ -67,8 +93,23 @@ serve(async (req) => {
       console.log('Token exchange response status:', tokenResponse.status);
 
       if (!tokenResponse.ok) {
-        console.error('Token exchange failed:', tokenData);
-        throw new Error(tokenData.error_description || 'Failed to exchange code');
+        // Safe logs (never log client_secret)
+        console.error('Token exchange failed (google)', {
+          status: tokenResponse.status,
+          error: tokenData?.error,
+          error_description: tokenData?.error_description,
+          clientIdMasked: maskId(GOOGLE_CLIENT_ID),
+          redirectUri,
+        });
+
+        return new Response(JSON.stringify({
+          error: tokenData?.error ?? 'token_exchange_failed',
+          error_description: tokenData?.error_description ?? 'Failed to exchange code',
+          status: tokenResponse.status,
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       const tokenExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
