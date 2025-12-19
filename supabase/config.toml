@@ -17,3 +17,15 @@ verify_jwt = true
 
 [functions.secure-register-face]
 verify_jwt = true
+
+[functions.attendance-chatbot]
+verify_jwt = true
+
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.admin-delete-user]
+verify_jwt = true
+
+[functions.admin-update-user]
+verify_jwt = true

@@ -28,6 +28,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { AttendanceChatbot } from '@/components/chatbot/AttendanceChatbot';
 
 
 
@@ -383,6 +384,7 @@ export default function AdminDashboard() {
           ))}
         </div>
       </div>
+      <AttendanceChatbot />
     </DashboardLayout>
   );
 }
