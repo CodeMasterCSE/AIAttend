@@ -29,6 +29,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { AttendanceChatbot } from '@/components/chatbot/AttendanceChatbot';
 
 export default function ProfessorDashboard() {
   const { classes, isLoading } = useClasses();
@@ -336,6 +337,7 @@ export default function ProfessorDashboard() {
           </div>
         </div>
       </div>
+      <AttendanceChatbot />
     </DashboardLayout>
   );
 }

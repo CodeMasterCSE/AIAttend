@@ -29,6 +29,7 @@ import {
 import { useStudentStats } from '@/hooks/useStudentStats';
 import { ActiveSessionsBanner } from '@/components/student/ActiveSessionsBanner';
 import { JoinClassCard } from '@/components/student/JoinClassCard';
+import { AttendanceChatbot } from '@/components/chatbot/AttendanceChatbot';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -331,6 +332,7 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+      <AttendanceChatbot />
     </DashboardLayout>
   );
 }
