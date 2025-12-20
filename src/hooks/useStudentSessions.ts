@@ -8,6 +8,8 @@ export interface ActiveSession {
   date: string;
   start_time: string;
   is_active: boolean;
+  attendance_window_minutes: number;
+  session_duration_minutes: number;
   classes: {
     id: string;
     subject: string;
@@ -35,6 +37,8 @@ export function useStudentSessions() {
           date,
           start_time,
           is_active,
+          attendance_window_minutes,
+          session_duration_minutes,
           classes (
             id,
             subject,

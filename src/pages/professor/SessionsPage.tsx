@@ -29,7 +29,9 @@ import { BulkAttendanceMarking } from '@/components/professor/BulkAttendanceMark
 import { ScheduledSessionStarter } from '@/components/professor/ScheduledSessionStarter';
 import { SessionTimer } from '@/components/professor/SessionTimer';
 import { ManualAttendanceEditor } from '@/components/professor/ManualAttendanceEditor';
+import { SessionConfigDialog } from '@/components/professor/SessionConfigDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { SessionConfig } from '@/hooks/useAttendanceSessions';
 
 interface SessionLiveCheckinsProps {
   sessionId: string;
@@ -102,7 +104,7 @@ export default function QRSessionsPage() {
     });
   };
 
-  const handleStartSession = async () => {
+  const handleStartSession = async (config: SessionConfig) => {
     if (!selectedClassId) {
       toast({ title: 'Error', description: 'Please select a class first', variant: 'destructive' });
       return;
@@ -125,8 +127,11 @@ export default function QRSessionsPage() {
         });
       }
 
-      await createSession(selectedClassId);
-      toast({ title: 'Session started', description: 'QR code is now active for students' });
+      await createSession(selectedClassId, config);
+      toast({ 
+        title: 'Session started', 
+        description: `QR code is now active. Attendance window: ${config.attendanceWindowMinutes} min, Duration: ${config.sessionDurationMinutes} min` 
+      });
     } catch (error) {
       console.error('Error starting session:', error);
       toast({ title: 'Error', description: 'Failed to start session', variant: 'destructive' });
@@ -273,24 +278,12 @@ export default function QRSessionsPage() {
                       {locationStatus}
                     </div>
                   )}
-                  <Button 
-                    onClick={handleStartSession} 
-                    disabled={isStarting}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {isStarting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {locationStatus || 'Starting...'}
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Attendance Session
-                      </>
-                    )}
-                  </Button>
+                  <SessionConfigDialog
+                    onStart={handleStartSession}
+                    disabled={!selectedClassId}
+                    isLoading={isStarting}
+                    locationStatus={locationStatus}
+                  />
                   <p className="text-xs text-muted-foreground text-center">
                     <MapPin className="h-3 w-3 inline mr-1" />
                     Your location will be captured for proximity check-in
@@ -303,7 +296,7 @@ export default function QRSessionsPage() {
                       Session is active. Students can now scan the QR code below.
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Started at {activeSession.start_time}
+                      Started at {activeSession.start_time} • Window: {activeSession.attendance_window_minutes}min • Duration: {activeSession.session_duration_minutes}min
                     </p>
                     {selectedClass?.latitude && selectedClass?.longitude && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -315,6 +308,8 @@ export default function QRSessionsPage() {
                   <SessionTimer
                     sessionDate={activeSession.date}
                     sessionStartTime={activeSession.start_time}
+                    attendanceWindowMinutes={activeSession.attendance_window_minutes}
+                    sessionDurationMinutes={activeSession.session_duration_minutes}
                     isActive={activeSession.is_active}
                     className="mb-4"
                   />
