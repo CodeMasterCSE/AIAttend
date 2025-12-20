@@ -25,6 +25,7 @@ import StudentsPage from "./pages/admin/StudentsPage";
 import FacultyPage from "./pages/admin/FacultyPage";
 import AdminClassesPage from "./pages/admin/ClassesPage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
+import DepartmentsPage from "./pages/admin/DepartmentsPage";
 import ProfilePage from "./pages/ProfilePage";
 import CalendarCallback from "./pages/CalendarCallback";
 import NotFound from "./pages/NotFound";
@@ -125,6 +126,7 @@ function AppRoutes() {
       <Route path="/admin/faculty" element={<ProtectedRoute allowedRoles={['admin']}><FacultyPage /></ProtectedRoute>} />
       <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={['admin']}><AdminClassesPage /></ProtectedRoute>} />
       <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AnalyticsPage /></ProtectedRoute>} />
+      <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['admin']}><DepartmentsPage /></ProtectedRoute>} />
       <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={['admin']}><ProfilePage /></ProtectedRoute>} />
 
       {/* 404 */}
