@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.google-config]
 verify_jwt = false
+
+[functions.auto-end-sessions]
+verify_jwt = false
