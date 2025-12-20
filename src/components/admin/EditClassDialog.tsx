@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
-import { DEPARTMENTS } from '@/lib/constants';
+import { useDepartments } from '@/hooks/useDepartments';
 
 interface ClassData {
     id: string;
@@ -36,6 +36,7 @@ export function EditClassDialog({ classData, open, onOpenChange, onSuccess }: Ed
         room: '',
     });
     const { toast } = useToast();
+    const { departments, isLoading: deptsLoading } = useDepartments();
 
     useEffect(() => {
         if (classData) {
@@ -118,14 +119,19 @@ export function EditClassDialog({ classData, open, onOpenChange, onSuccess }: Ed
                                 onValueChange={(value) => setFormData({ ...formData, department: value })}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select Department" />
+                                    <SelectValue placeholder={deptsLoading ? "Loading..." : "Select Department"} />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    {DEPARTMENTS.map((dept) => (
-                                        <SelectItem key={dept} value={dept}>
-                                            {dept}
+                                <SelectContent className="bg-popover">
+                                    {departments.map((dept) => (
+                                        <SelectItem key={dept.id} value={dept.name}>
+                                            {dept.name}
                                         </SelectItem>
                                     ))}
+                                    {departments.length === 0 && !deptsLoading && (
+                                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                            No departments available
+                                        </div>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DEPARTMENTS } from '@/lib/constants';
+import { useDepartments } from '@/hooks/useDepartments';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Loader2 } from 'lucide-react';
@@ -24,6 +24,7 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
     roll_number: '',
   });
   const { toast } = useToast();
+  const { departments, isLoading: deptsLoading } = useDepartments();
 
   const handleRollNumberChange = (value: string) => {
     const rollNumber = value.toUpperCase();
@@ -101,14 +102,19 @@ export function AddStudentDialog({ onSuccess }: AddStudentDialogProps) {
               onValueChange={(value) => setFormData({ ...formData, department: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select department" />
+                <SelectValue placeholder={deptsLoading ? "Loading..." : "Select department"} />
               </SelectTrigger>
-              <SelectContent>
-                {DEPARTMENTS.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
+              <SelectContent className="bg-popover">
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.name}>
+                    {dept.name}
                   </SelectItem>
                 ))}
+                {departments.length === 0 && !deptsLoading && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    No departments available
+                  </div>
+                )}
               </SelectContent>
             </Select>
           </div>

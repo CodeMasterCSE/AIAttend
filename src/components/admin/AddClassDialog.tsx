@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Loader2 } from 'lucide-react';
-import { DEPARTMENTS } from '@/lib/constants';
+import { useDepartments } from '@/hooks/useDepartments';
 
 interface Professor {
   user_id: string;
@@ -32,6 +32,7 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
     professor_id: '',
   });
   const { toast } = useToast();
+  const { departments, isLoading: deptsLoading } = useDepartments();
 
   useEffect(() => {
     if (open) {
@@ -65,7 +66,6 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
     setIsLoading(true);
 
     try {
-      // Generate join_code - the database trigger will handle this
       const { error } = await supabase
         .from('classes')
         .insert({
@@ -75,7 +75,6 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
           semester: formData.semester,
           room: formData.room,
           professor_id: formData.professor_id,
-          // join_code is omitted so the default/trigger can generate it
         } as any);
 
       if (error) throw error;
@@ -132,7 +131,7 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
               <SelectTrigger>
                 <SelectValue placeholder="Select professor" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover">
                 {professors.map((prof) => (
                   <SelectItem key={prof.user_id} value={prof.user_id}>
                     {prof.name} ({prof.email})
@@ -149,14 +148,19 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
                 onValueChange={(value) => setFormData({ ...formData, department: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Department" />
+                  <SelectValue placeholder={deptsLoading ? "Loading..." : "Select Department"} />
                 </SelectTrigger>
-                <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
+                <SelectContent className="bg-popover">
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
                     </SelectItem>
                   ))}
+                  {departments.length === 0 && !deptsLoading && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No departments available
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
