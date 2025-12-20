@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -82,23 +84,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { sessionId, classId, latitude, longitude, accuracy } = await req.json();
+    const { 
+      sessionId, 
+      classId, 
+      latitude, 
+      longitude, 
+      accuracy,
+      isTimeoutFallback = false,
+      locationStatus = 'unknown'
+    } = await req.json();
 
-    if (!sessionId || !classId || latitude === undefined || longitude === undefined) {
+    console.log('Proximity verification request:', {
+      sessionId,
+      classId,
+      hasLocation: latitude !== null && longitude !== null,
+      accuracy,
+      isTimeoutFallback,
+      locationStatus,
+      userId: user.id,
+    });
+
+    if (!sessionId || !classId) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: sessionId and classId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid GPS coordinates' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Validate coordinates if provided
+    const hasValidCoordinates = latitude !== null && latitude !== undefined && 
+                                 longitude !== null && longitude !== undefined;
+    
+    if (hasValidCoordinates) {
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid GPS coordinates' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    // Verify the session exists - include window columns
+    // Verify the session exists
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('attendance_sessions')
       .select('id, class_id, is_active, date, start_time, attendance_window_minutes, session_duration_minutes')
@@ -182,15 +208,32 @@ Deno.serve(async (req) => {
 
     let distance: number | null = null;
     let verificationScore = 0.5;
+    let proximityStatus: 'verified' | 'unverified' = 'verified';
+    let failureReason: string | null = null;
     const allowedRadius = classData.proximity_radius_meters || 50;
 
-    if (classData.latitude !== null && classData.longitude !== null) {
+    // Handle timeout fallback - allow check-in but flag for review
+    if (isTimeoutFallback || !hasValidCoordinates) {
+      console.log('Processing timeout fallback or missing coordinates');
+      proximityStatus = 'unverified';
+      failureReason = isTimeoutFallback ? 'location_timeout' : 'location_unavailable';
+      verificationScore = 0.3; // Lower score for unverified
+    } else if (classData.latitude !== null && classData.longitude !== null) {
+      // Normal proximity verification
       distance = calculateDistance(
         latitude,
         longitude,
         classData.latitude,
         classData.longitude
       );
+
+      console.log('Distance calculated:', {
+        studentLocation: { latitude, longitude },
+        classLocation: { latitude: classData.latitude, longitude: classData.longitude },
+        distance: Math.round(distance),
+        allowedRadius,
+        accuracy,
+      });
 
       if (distance > allowedRadius) {
         return new Response(
@@ -204,12 +247,24 @@ Deno.serve(async (req) => {
         );
       }
 
-      verificationScore = Math.max(0, (allowedRadius - distance) / allowedRadius);
+      // Calculate verification score based on distance and accuracy
+      const distanceScore = Math.max(0, (allowedRadius - distance) / allowedRadius);
+      const accuracyScore = accuracy ? Math.max(0, Math.min(1, (100 - accuracy) / 100)) : 0.5;
+      verificationScore = (distanceScore * 0.7) + (accuracyScore * 0.3);
+      proximityStatus = 'verified';
     } else {
+      // Class has no location set - use accuracy-based score
       verificationScore = accuracy ? Math.max(0, Math.min(1, (100 - accuracy) / 100)) : 0.5;
+      proximityStatus = 'unverified';
+      failureReason = 'class_location_not_configured';
     }
 
-    // Record attendance with late_submission flag
+    // Build manual reason for unverified cases
+    const manualReason = proximityStatus === 'unverified' 
+      ? `Proximity unverified: ${failureReason}. Flagged for professor review.`
+      : null;
+
+    // Record attendance
     const { error: insertError } = await supabaseAdmin
       .from('attendance_records')
       .insert({
@@ -220,6 +275,7 @@ Deno.serve(async (req) => {
         status: windowResult.isLate ? 'late' : 'present',
         verification_score: verificationScore,
         late_submission: windowResult.isLate,
+        manual_reason: manualReason,
       });
 
     if (insertError) {
@@ -240,22 +296,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    const responseTime = Date.now() - startTime;
+    console.log('Proximity verification completed:', {
+      userId: user.id,
+      sessionId,
+      proximityStatus,
+      distance: distance !== null ? Math.round(distance) : null,
+      verificationScore,
+      isLate: windowResult.isLate,
+      responseTimeMs: responseTime,
+    });
+
+    // Build response message
+    let message = '';
+    if (proximityStatus === 'unverified') {
+      message = `Attendance recorded (pending review)${windowResult.isLate ? ' - Late' : ''}`;
+    } else if (distance !== null) {
+      message = `Check-in successful! You are ${Math.round(distance)}m from ${classData.room}${windowResult.isLate ? ' (Late)' : ''}`;
+    } else {
+      message = `Check-in successful!${windowResult.isLate ? ' (Late)' : ''}`;
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
         alreadyCheckedIn: false,
         isLate: windowResult.isLate,
-        message: distance !== null 
-          ? `Check-in successful! You are ${Math.round(distance)}m from ${classData.room}${windowResult.isLate ? ' (Late)' : ''}`
-          : `Check-in successful!${windowResult.isLate ? ' (Late)' : ''}`,
+        proximityStatus,
+        message,
         distance: distance !== null ? Math.round(distance) : null,
-        room: classData.room
+        room: classData.room,
+        responseTimeMs: responseTime,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Proximity verification error:', error);
+    const responseTime = Date.now() - startTime;
+    console.error('Proximity verification error:', error, { responseTimeMs: responseTime });
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
