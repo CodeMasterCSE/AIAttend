@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useDepartments } from '@/hooks/useDepartments';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
@@ -32,6 +34,7 @@ export function EditProfessorDialog({ professor, open, onOpenChange, onSuccess }
         employee_id: '',
     });
     const { toast } = useToast();
+    const { departments, isLoading: deptsLoading } = useDepartments();
 
     useEffect(() => {
         if (professor) {
@@ -130,11 +133,26 @@ export function EditProfessorDialog({ professor, open, onOpenChange, onSuccess }
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="prof-department">Department</Label>
-                        <Input
-                            id="prof-department"
+                        <Select
                             value={formData.department}
-                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        />
+                            onValueChange={(value) => setFormData({ ...formData, department: value })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={deptsLoading ? "Loading..." : "Select department"} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover">
+                                {departments.map((dept) => (
+                                    <SelectItem key={dept.id} value={dept.name}>
+                                        {dept.name}
+                                    </SelectItem>
+                                ))}
+                                {departments.length === 0 && !deptsLoading && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                        No departments available
+                                    </div>
+                                )}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="prof-employee_id">Employee ID</Label>
