@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Clock, ScanFace, QrCode, Wifi } from 'lucide-react';
+import { CheckCircle2, Clock, ScanFace, QrCode, Wifi, AlertTriangle } from 'lucide-react';
 
 interface AttendanceRecordWithStudent {
   id: string;
@@ -13,6 +13,7 @@ interface AttendanceRecordWithStudent {
   timestamp: Date;
   methodUsed: 'face' | 'qr' | 'proximity' | 'manual';
   status: 'present' | 'absent';
+  proximityStatus?: 'verified' | 'unverified';
 }
 
 interface LiveAttendanceCardProps {
@@ -79,7 +80,7 @@ export function LiveAttendanceCard({ records, className }: LiveAttendanceCardPro
         ) : (
           animatedRecords.map((record, index) => {
             const MethodIcon = methodIcons[record.methodUsed];
-            
+
             return (
               <div
                 key={record.id}
@@ -92,7 +93,7 @@ export function LiveAttendanceCard({ records, className }: LiveAttendanceCardPro
                     {record.studentName?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{record.studentName || 'Unknown'}</p>
                   <p className="text-xs text-muted-foreground">{record.studentRollNumber}</p>
@@ -100,14 +101,27 @@ export function LiveAttendanceCard({ records, className }: LiveAttendanceCardPro
 
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MethodIcon className="w-3.5 h-3.5" />
-                    <span className="capitalize">{record.methodUsed}</span>
+                    {record.methodUsed === 'proximity' && record.proximityStatus === 'unverified' ? (
+                      <AlertTriangle className="w-3.5 h-3.5 text-warning" />
+                    ) : (
+                      <MethodIcon className="w-3.5 h-3.5" />
+                    )}
+                    <span className="capitalize">
+                      {record.methodUsed === 'proximity' && record.proximityStatus === 'unverified'
+                        ? 'Proximity (Review)'
+                        : record.methodUsed}
+                    </span>
                   </div>
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-xs capitalize", statusColors[record.status])}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs capitalize",
+                      record.proximityStatus === 'unverified'
+                        ? "bg-warning/10 text-warning border-warning/20"
+                        : statusColors[record.status]
+                    )}
                   >
-                    {record.status}
+                    {record.proximityStatus === 'unverified' ? 'Needs Review' : record.status}
                   </Badge>
                 </div>
 

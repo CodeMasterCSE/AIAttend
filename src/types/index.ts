@@ -56,6 +56,9 @@ export interface AttendanceRecord {
   methodUsed: 'face' | 'qr' | 'proximity' | 'manual';
   status: 'present' | 'absent';
   verificationScore?: number;
+  proximityStatus?: 'verified' | 'unverified';
+  distanceMeters?: number;
+  failureReason?: string;
 }
 
 export interface AttendanceSession {

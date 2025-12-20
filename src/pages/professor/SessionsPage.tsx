@@ -5,7 +5,7 @@ import { LiveAttendanceCard } from '@/components/common/LiveAttendanceCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -16,10 +16,10 @@ import { useClasses } from '@/hooks/useClasses';
 import { useAttendanceSessions } from '@/hooks/useAttendanceSessions';
 import { useAttendanceRecords } from '@/hooks/useAttendanceRecords';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  QrCode, 
-  Play, 
-  StopCircle, 
+import {
+  QrCode,
+  Play,
+  StopCircle,
   Users,
   Clock,
   Loader2,
@@ -72,10 +72,10 @@ export default function QRSessionsPage() {
   const captureLocation = (): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        toast({ 
-          title: 'Location not supported', 
+        toast({
+          title: 'Location not supported',
           description: 'Your browser does not support geolocation. Proximity check-in will use existing class location.',
-          variant: 'destructive' 
+          variant: 'destructive'
         });
         resolve(null);
         return;
@@ -93,8 +93,8 @@ export default function QRSessionsPage() {
         (error) => {
           setLocationStatus('');
           console.error('Geolocation error:', error);
-          toast({ 
-            title: 'Location access denied', 
+          toast({
+            title: 'Location access denied',
             description: 'Could not get your location. Proximity check-in will use existing class location.',
           });
           resolve(null);
@@ -114,23 +114,23 @@ export default function QRSessionsPage() {
     try {
       // Capture professor's current location for proximity verification
       const location = await captureLocation();
-      
+
       if (location) {
         // Update class location with professor's current position
         await updateClass(selectedClassId, {
           latitude: location.latitude,
           longitude: location.longitude,
         });
-        toast({ 
-          title: 'Location captured', 
+        toast({
+          title: 'Location captured',
           description: 'Classroom location updated for proximity check-in',
         });
       }
 
       await createSession(selectedClassId, config);
-      toast({ 
-        title: 'Session started', 
-        description: `QR code is now active. Attendance window: ${config.attendanceWindowMinutes} min, Duration: ${config.sessionDurationMinutes} min` 
+      toast({
+        title: 'Session started',
+        description: `QR code is now active. Attendance window: ${config.attendanceWindowMinutes} min, Duration: ${config.sessionDurationMinutes} min`
       });
     } catch (error) {
       console.error('Error starting session:', error);
@@ -146,15 +146,15 @@ export default function QRSessionsPage() {
     setIsUpdatingLocation(true);
     try {
       const location = await captureLocation();
-      
+
       if (location) {
         await updateClass(selectedClassId, {
           latitude: location.latitude,
           longitude: location.longitude,
         });
         await refreshClasses();
-        toast({ 
-          title: 'Location updated', 
+        toast({
+          title: 'Location updated',
           description: 'New classroom location saved for proximity check-in',
         });
       }
@@ -326,7 +326,7 @@ export default function QRSessionsPage() {
                       className={`${selectedClass?.subject} (${selectedClass?.code})`}
                       onSuccess={refreshSessions}
                     />
-                    <Button 
+                    <Button
                       onClick={handleUpdateLocation}
                       variant="outline"
                       className="flex-1"
@@ -344,8 +344,8 @@ export default function QRSessionsPage() {
                         </>
                       )}
                     </Button>
-                    <Button 
-                      onClick={handleEndSession} 
+                    <Button
+                      onClick={handleEndSession}
                       variant="destructive"
                       className="flex-1"
                     >
@@ -362,8 +362,8 @@ export default function QRSessionsPage() {
         {/* QR Code Display & Live Check-ins */}
         {activeSession && selectedClass && (
           <div className="space-y-6">
-            <QRCodeDisplay 
-              sessionId={activeSession.id} 
+            <QRCodeDisplay
+              sessionId={activeSession.id}
               className={`${selectedClass.subject} (${selectedClass.code})`}
             />
 

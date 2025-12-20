@@ -28,23 +28,23 @@ function validateAttendanceWindow(session: any, currentTime: Date = new Date()) 
   const windowEndTime = new Date(sessionStartTime.getTime() + windowMinutes * 60 * 1000);
   const sessionDurationMinutes = session.session_duration_minutes ?? 60;
   const sessionEndTime = new Date(sessionStartTime.getTime() + sessionDurationMinutes * 60 * 1000);
-  
+
   const now = currentTime.getTime();
   const windowEndMs = windowEndTime.getTime();
   const sessionEndMs = sessionEndTime.getTime();
-  
+
   if (!session.is_active) {
     return { isOpen: false, isLate: false, error: 'Session has ended' };
   }
-  
+
   if (now > sessionEndMs) {
     return { isOpen: false, isLate: false, error: 'Session has expired' };
   }
-  
+
   const isWindowOpen = now <= windowEndMs;
   const lateThresholdMs = sessionStartTime.getTime() + 10 * 60 * 1000;
   const isLate = now > lateThresholdMs && now <= windowEndMs;
-  
+
   return {
     isOpen: isWindowOpen,
     isLate,
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -84,11 +84,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { 
-      sessionId, 
-      classId, 
-      latitude, 
-      longitude, 
+    const {
+      sessionId,
+      classId,
+      latitude,
+      longitude,
       accuracy,
       isTimeoutFallback = false,
       locationStatus = 'unknown'
@@ -112,9 +112,9 @@ Deno.serve(async (req) => {
     }
 
     // Validate coordinates if provided
-    const hasValidCoordinates = latitude !== null && latitude !== undefined && 
-                                 longitude !== null && longitude !== undefined;
-    
+    const hasValidCoordinates = latitude !== null && latitude !== undefined &&
+      longitude !== null && longitude !== undefined;
+
     if (hasValidCoordinates) {
       if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
         return new Response(
@@ -140,12 +140,12 @@ Deno.serve(async (req) => {
 
     // SERVER-SIDE ATTENDANCE WINDOW VALIDATION
     const windowResult = validateAttendanceWindow(session);
-    
+
     if (!windowResult.isOpen) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: windowResult.error,
-          windowClosed: true 
+          windowClosed: true
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -183,10 +183,10 @@ Deno.serve(async (req) => {
 
     if (existingRecord) {
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           alreadyCheckedIn: true,
-          message: 'Your attendance was already recorded for this session' 
+          message: 'Your attendance was already recorded for this session'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
 
       if (distance > allowedRadius) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Too far from classroom',
             distance: Math.round(distance),
             allowedRadius,
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
     }
 
     // Build manual reason for unverified cases
-    const manualReason = proximityStatus === 'unverified' 
+    const manualReason = proximityStatus === 'unverified'
       ? `Proximity unverified: ${failureReason}. Flagged for professor review.`
       : null;
 
@@ -281,10 +281,10 @@ Deno.serve(async (req) => {
     if (insertError) {
       if (insertError.code === '23505') {
         return new Response(
-          JSON.stringify({ 
-            success: true, 
+          JSON.stringify({
+            success: true,
             alreadyCheckedIn: true,
-            message: 'Your attendance was already recorded for this session' 
+            message: 'Your attendance was already recorded for this session'
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         alreadyCheckedIn: false,
         isLate: windowResult.isLate,

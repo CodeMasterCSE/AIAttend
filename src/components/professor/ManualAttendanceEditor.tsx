@@ -31,14 +31,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  UserPlus, 
-  Loader2, 
-  Check, 
-  X, 
+import {
+  UserPlus,
+  Loader2,
+  Check,
+  X,
   Clock,
   Edit,
   History,
+  AlertTriangle,
 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -58,6 +59,7 @@ interface StudentRecord {
   status: string | null;
   method_used: string | null;
   timestamp: string | null;
+  proximity_status?: string | null;
 }
 
 interface AuditLogEntry {
@@ -89,6 +91,7 @@ export function ManualAttendanceEditor({
   const { user } = useAuth();
 
   const fetchStudents = async () => {
+    if (!classId || !sessionId) return;
     setIsLoading(true);
     try {
       // Fetch enrolled students
@@ -122,7 +125,7 @@ export function ManualAttendanceEditor({
       if (recordError) throw recordError;
 
       const recordMap = new Map(
-        (records || []).map(r => [r.student_id, r])
+        (records as any[] || []).map(r => [r.student_id, r])
       );
 
       const studentRecords: StudentRecord[] = (profiles || []).map(p => {
@@ -140,11 +143,11 @@ export function ManualAttendanceEditor({
       });
 
       setStudents(studentRecords.sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching students:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load students',
+        description: error.message || 'Failed to load students',
         variant: 'destructive',
       });
     } finally {
@@ -164,6 +167,12 @@ export function ManualAttendanceEditor({
 
       // Enrich with student names
       const studentIds = [...new Set((data || []).map(d => d.student_id))];
+
+      if (studentIds.length === 0) {
+        setAuditLog([]);
+        return;
+      }
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name')
@@ -181,11 +190,11 @@ export function ManualAttendanceEditor({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && classId && sessionId) {
       fetchStudents();
       fetchAuditLog();
     }
-  }, [isOpen, sessionId]);
+  }, [isOpen, sessionId, classId]);
 
   const handleEditClick = (student: StudentRecord) => {
     setEditingStudent(student);
@@ -326,6 +335,9 @@ export function ManualAttendanceEditor({
     }
   };
 
+  const isUnverified = (student: StudentRecord) =>
+    student.method_used === 'proximity' && student.proximity_status === 'unverified';
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -394,7 +406,17 @@ export function ManualAttendanceEditor({
                         </div>
                       </TableCell>
                       <TableCell>{student.roll_number || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(student.status, student.method_used)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(student.status, student.method_used)}
+                          {isUnverified(student) && (
+                            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Review
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="capitalize">{student.method_used || '-'}</TableCell>
                       <TableCell className="text-right">
                         <Button

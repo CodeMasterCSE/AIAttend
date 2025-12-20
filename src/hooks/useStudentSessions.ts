@@ -29,7 +29,8 @@ export function useStudentSessions() {
 
     try {
       setIsLoading(true);
-      const { data, error: fetchError } = await supabase
+      // 1. Fetch all active sessions
+      const { data: sessionsData, error: fetchError } = await supabase
         .from('attendance_sessions')
         .select(`
           id,
@@ -50,7 +51,27 @@ export function useStudentSessions() {
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setSessions(data as ActiveSession[] || []);
+
+      if (!sessionsData || sessionsData.length === 0) {
+        setSessions([]);
+        return;
+      }
+
+      // 2. Fetch existing attendance records for this student and these sessions
+      const sessionIds = sessionsData.map(s => s.id);
+      const { data: records, error: recordsError } = await supabase
+        .from('attendance_records')
+        .select('session_id')
+        .eq('student_id', user.id)
+        .in('session_id', sessionIds);
+
+      if (recordsError) throw recordsError;
+
+      // 3. Filter out sessions that already have a record
+      const attendedSessionIds = new Set((records || []).map(r => r.session_id));
+      const filteredSessions = sessionsData.filter(session => !attendedSessionIds.has(session.id));
+
+      setSessions(filteredSessions as ActiveSession[]);
     } catch (err) {
       console.error('Error fetching sessions:', err);
       setError('Failed to fetch attendance sessions');
@@ -67,7 +88,8 @@ export function useStudentSessions() {
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
+    // Sub to sessions
+    const sessionsChannel = supabase
       .channel('student-sessions')
       .on(
         'postgres_changes',
@@ -77,17 +99,12 @@ export function useStudentSessions() {
           table: 'attendance_sessions',
         },
         (payload) => {
-          console.log('Real-time session update:', payload);
-          
           if (payload.eventType === 'INSERT' && payload.new.is_active) {
-            // Fetch the full session with class info
             fetchActiveSessions();
           } else if (payload.eventType === 'UPDATE') {
             if (payload.new.is_active === false) {
-              // Session ended - remove from list
               setSessions((prev) => prev.filter((s) => s.id !== payload.new.id));
             } else {
-              // Session updated - refresh
               fetchActiveSessions();
             }
           } else if (payload.eventType === 'DELETE') {
@@ -97,8 +114,26 @@ export function useStudentSessions() {
       )
       .subscribe();
 
+    // Sub to my attendance records (to auto-remove session on check-in)
+    const recordsChannel = supabase
+      .channel('student-records-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `student_id=eq.${user.id}`,
+        },
+        () => {
+          fetchActiveSessions();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(sessionsChannel);
+      supabase.removeChannel(recordsChannel);
     };
   }, [user]);
 

@@ -11,6 +11,9 @@ export interface AttendanceRecord {
   method_used: string;
   status: string;
   verification_score: number | null;
+  proximity_status?: 'verified' | 'unverified';
+  distance_meters?: number;
+  failure_reason?: string;
   student?: {
     name: string;
     roll_number: string | null;
@@ -64,13 +67,13 @@ export function useAttendanceRecords(classId?: string, sessionId?: string) {
       // Fetch student profiles separately
       const studentIds = [...new Set((data || []).map((r: any) => r.student_id))];
       let profilesMap: Record<string, any> = {};
-      
+
       if (studentIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, name, roll_number, photo_url')
           .in('user_id', studentIds);
-        
+
         profilesMap = (profiles || []).reduce((acc: any, p: any) => {
           acc[p.user_id] = p;
           return acc;
@@ -158,7 +161,7 @@ export function useAttendanceRecords(classId?: string, sessionId?: string) {
 
             // Only add if matches current filter
             if ((!classId || newRecord.class_id === classId) &&
-                (!sessionId || newRecord.session_id === sessionId)) {
+              (!sessionId || newRecord.session_id === sessionId)) {
               setRecords((prev) => [newRecord as AttendanceRecord, ...prev]);
             }
           }

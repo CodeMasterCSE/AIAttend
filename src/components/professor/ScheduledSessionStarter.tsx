@@ -136,6 +136,7 @@ export function ScheduledSessionStarter({ onSessionStarted }: ScheduledSessionSt
         .insert({
           class_id: classId,
           start_time: startTime,
+          date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
           is_active: true,
         });
 
@@ -193,9 +194,8 @@ export function ScheduledSessionStarter({ onSessionStarted }: ScheduledSessionSt
             return (
               <div
                 key={schedule.scheduleId}
-                className={`p-4 rounded-xl border ${
-                  isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'
-                }`}
+                className={`p-4 rounded-xl border ${isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'
+                  }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <Badge variant="outline">{schedule.code}</Badge>
