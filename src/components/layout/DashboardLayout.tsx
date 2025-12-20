@@ -53,12 +53,13 @@ const professorNavItems = [
   { icon: BarChart3, label: 'Reports', path: '/professor/reports' },
 ];
 
-// Admin: 5 items - Dashboard, Students, Faculty, Classes, Analytics
+// Admin: 6 items - Dashboard, Students, Faculty, Classes, Departments, Analytics
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: GraduationCap, label: 'Students', path: '/admin/students' },
   { icon: UserCog, label: 'Faculty', path: '/admin/faculty' },
   { icon: BookOpen, label: 'Classes', path: '/admin/classes' },
+  { icon: Users, label: 'Departments', path: '/admin/departments' },
   { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
 ];
 
