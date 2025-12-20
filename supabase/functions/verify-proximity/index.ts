@@ -21,8 +21,38 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // Distance in meters
 }
 
+// Inline attendance window validation
+function validateAttendanceWindow(session: any, currentTime: Date = new Date()) {
+  const sessionStartTime = new Date(`${session.date}T${session.start_time}Z`);
+  const windowMinutes = session.attendance_window_minutes ?? 15;
+  const windowEndTime = new Date(sessionStartTime.getTime() + windowMinutes * 60 * 1000);
+  const sessionDurationMinutes = session.session_duration_minutes ?? 60;
+  const sessionEndTime = new Date(sessionStartTime.getTime() + sessionDurationMinutes * 60 * 1000);
+  
+  const now = currentTime.getTime();
+  const windowEndMs = windowEndTime.getTime();
+  const sessionEndMs = sessionEndTime.getTime();
+  
+  if (!session.is_active) {
+    return { isOpen: false, isLate: false, error: 'Session has ended' };
+  }
+  
+  if (now > sessionEndMs) {
+    return { isOpen: false, isLate: false, error: 'Session has expired' };
+  }
+  
+  const isWindowOpen = now <= windowEndMs;
+  const lateThresholdMs = sessionStartTime.getTime() + 10 * 60 * 1000;
+  const isLate = now > lateThresholdMs && now <= windowEndMs;
+  
+  return {
+    isOpen: isWindowOpen,
+    isLate,
+    error: isWindowOpen ? undefined : 'Attendance window has closed. Please contact your professor for manual attendance.',
+  };
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -31,7 +61,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -40,15 +69,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role for database operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Create client with user token for auth verification
     const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the user
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return new Response(
@@ -57,10 +82,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body
     const { sessionId, classId, latitude, longitude, accuracy } = await req.json();
 
-    // Validate required fields
     if (!sessionId || !classId || latitude === undefined || longitude === undefined) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
@@ -68,7 +91,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate coordinate ranges
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       return new Response(
         JSON.stringify({ error: 'Invalid GPS coordinates' }),
@@ -76,10 +98,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify the session exists and is active
+    // Verify the session exists - include window columns
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('attendance_sessions')
-      .select('id, class_id, is_active')
+      .select('id, class_id, is_active, date, start_time, attendance_window_minutes, session_duration_minutes')
       .eq('id', sessionId)
       .single();
 
@@ -90,14 +112,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!session.is_active) {
+    // SERVER-SIDE ATTENDANCE WINDOW VALIDATION
+    const windowResult = validateAttendanceWindow(session);
+    
+    if (!windowResult.isOpen) {
       return new Response(
-        JSON.stringify({ error: 'Session is not active' }),
+        JSON.stringify({ 
+          error: windowResult.error,
+          windowClosed: true 
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Verify class ID matches session
     if (session.class_id !== classId) {
       return new Response(
         JSON.stringify({ error: 'Class ID does not match session' }),
@@ -157,7 +184,6 @@ Deno.serve(async (req) => {
     let verificationScore = 0.5;
     const allowedRadius = classData.proximity_radius_meters || 50;
 
-    // If classroom location is configured, verify proximity
     if (classData.latitude !== null && classData.longitude !== null) {
       distance = calculateDistance(
         latitude,
@@ -180,11 +206,10 @@ Deno.serve(async (req) => {
 
       verificationScore = Math.max(0, (allowedRadius - distance) / allowedRadius);
     } else {
-      // No classroom location configured - use accuracy as score
       verificationScore = accuracy ? Math.max(0, Math.min(1, (100 - accuracy) / 100)) : 0.5;
     }
 
-    // Record attendance
+    // Record attendance with late_submission flag
     const { error: insertError } = await supabaseAdmin
       .from('attendance_records')
       .insert({
@@ -192,12 +217,12 @@ Deno.serve(async (req) => {
         class_id: classId,
         student_id: user.id,
         method_used: 'proximity',
-        status: 'present',
+        status: windowResult.isLate ? 'late' : 'present',
         verification_score: verificationScore,
+        late_submission: windowResult.isLate,
       });
 
     if (insertError) {
-      // Handle duplicate key error
       if (insertError.code === '23505') {
         return new Response(
           JSON.stringify({ 
@@ -208,7 +233,7 @@ Deno.serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.error('Attendance recording failed');
+      console.error('Attendance recording failed:', insertError);
       return new Response(
         JSON.stringify({ error: 'Failed to record attendance' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -219,9 +244,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true,
         alreadyCheckedIn: false,
+        isLate: windowResult.isLate,
         message: distance !== null 
-          ? `Check-in successful! You are ${Math.round(distance)}m from ${classData.room}`
-          : 'Check-in successful!',
+          ? `Check-in successful! You are ${Math.round(distance)}m from ${classData.room}${windowResult.isLate ? ' (Late)' : ''}`
+          : `Check-in successful!${windowResult.isLate ? ' (Late)' : ''}`,
         distance: distance !== null ? Math.round(distance) : null,
         room: classData.room
       }),
@@ -229,7 +255,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Proximity verification error');
+    console.error('Proximity verification error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

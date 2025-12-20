@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { BulkAttendanceMarking } from '@/components/professor/BulkAttendanceMarking';
 import { ScheduledSessionStarter } from '@/components/professor/ScheduledSessionStarter';
+import { SessionTimer } from '@/components/professor/SessionTimer';
+import { ManualAttendanceEditor } from '@/components/professor/ManualAttendanceEditor';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SessionLiveCheckinsProps {
@@ -310,15 +312,27 @@ export default function QRSessionsPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <SessionTimer
+                    sessionDate={activeSession.date}
+                    sessionStartTime={activeSession.start_time}
+                    isActive={activeSession.is_active}
+                    className="mb-4"
+                  />
+                  <div className="flex gap-2 flex-wrap">
                     <BulkAttendanceMarking
                       classId={selectedClassId}
                       sessionId={activeSession.id}
                       className={`${selectedClass?.subject} (${selectedClass?.code})`}
                       onSuccess={refreshSessions}
                     />
+                    <ManualAttendanceEditor
+                      classId={selectedClassId}
+                      sessionId={activeSession.id}
+                      className={`${selectedClass?.subject} (${selectedClass?.code})`}
+                      onSuccess={refreshSessions}
+                    />
                     <Button 
-                      onClick={handleUpdateLocation} 
+                      onClick={handleUpdateLocation}
                       variant="outline"
                       className="flex-1"
                       disabled={isUpdatingLocation}

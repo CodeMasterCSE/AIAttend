@@ -5,6 +5,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Inline attendance window validation for edge function
+function validateAttendanceWindow(session: any, currentTime: Date = new Date()) {
+  const sessionStartTime = new Date(`${session.date}T${session.start_time}Z`);
+  const windowMinutes = session.attendance_window_minutes ?? 15;
+  const windowEndTime = new Date(sessionStartTime.getTime() + windowMinutes * 60 * 1000);
+  const sessionDurationMinutes = session.session_duration_minutes ?? 60;
+  const sessionEndTime = new Date(sessionStartTime.getTime() + sessionDurationMinutes * 60 * 1000);
+  
+  const now = currentTime.getTime();
+  const windowEndMs = windowEndTime.getTime();
+  const sessionEndMs = sessionEndTime.getTime();
+  
+  if (!session.is_active) {
+    return { isOpen: false, isLate: false, error: 'Session has ended' };
+  }
+  
+  if (now > sessionEndMs) {
+    return { isOpen: false, isLate: false, error: 'Session has expired' };
+  }
+  
+  const isWindowOpen = now <= windowEndMs;
+  const lateThresholdMs = sessionStartTime.getTime() + 10 * 60 * 1000;
+  const isLate = now > lateThresholdMs && now <= windowEndMs;
+  
+  return {
+    isOpen: isWindowOpen,
+    isLate,
+    error: isWindowOpen ? undefined : 'Attendance window has closed. Please contact your professor for manual attendance.',
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,16 +53,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract JWT token
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create service role client (for DB) and anon client (for auth)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify the JWT token and get user
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
     
     if (userError || !user) {
@@ -96,22 +122,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify session exists and is active
+    // Verify session exists and is active - include window/duration columns
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('attendance_sessions')
       .select('*, classes!inner(id, subject)')
       .eq('id', sessionId)
-      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {
-      return new Response(JSON.stringify({ error: 'Session not found or inactive' }), {
+      return new Response(JSON.stringify({ error: 'Session not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Verify secret matches from session_secrets table (students can't access this)
+    // SERVER-SIDE ATTENDANCE WINDOW VALIDATION
+    const windowResult = validateAttendanceWindow(session);
+    
+    if (!windowResult.isOpen) {
+      return new Response(JSON.stringify({ 
+        error: windowResult.error,
+        windowClosed: true 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Verify secret matches from session_secrets table
     const { data: sessionSecret, error: secretError } = await supabaseAdmin
       .from('session_secrets')
       .select('qr_secret')
@@ -158,11 +196,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine status (late if more than 10 minutes after session start)
-    const sessionStartTime = new Date(`${session.date}T${session.start_time}`);
-    const isLate = Date.now() - sessionStartTime.getTime() > 10 * 60 * 1000;
-
-    // Record attendance
+    // Record attendance with late_submission flag
     const { data: record, error: recordError } = await supabaseAdmin
       .from('attendance_records')
       .insert({
@@ -170,13 +204,14 @@ Deno.serve(async (req) => {
         class_id: session.class_id,
         student_id: user.id,
         method_used: 'qr',
-        status: isLate ? 'late' : 'present',
+        status: windowResult.isLate ? 'late' : 'present',
+        late_submission: windowResult.isLate,
       })
       .select()
       .single();
 
     if (recordError) {
-      console.error('Attendance recording failed');
+      console.error('Attendance recording failed:', recordError);
       return new Response(JSON.stringify({ error: 'Failed to record attendance' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -187,12 +222,13 @@ Deno.serve(async (req) => {
       success: true, 
       record,
       className: session.classes.subject,
-      status: isLate ? 'late' : 'present'
+      status: windowResult.isLate ? 'late' : 'present',
+      isLate: windowResult.isLate,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('QR verification error');
+    console.error('QR verification error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
