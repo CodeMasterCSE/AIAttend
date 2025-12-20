@@ -20,12 +20,17 @@ export function QRCodeDisplay({ sessionId, className }: QRCodeDisplayProps) {
   const generateQR = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Force refresh the session to get a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
       
-      if (!session?.access_token) {
-        toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
-        setIsLoading(false);
-        return;
+      if (sessionError || !session?.access_token) {
+        // Fall back to getSession if refresh fails
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (!existingSession?.access_token) {
+          toast({ title: 'Error', description: 'Please log in again', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
       }
       
       const { data, error } = await supabase.functions.invoke('generate-qr', {
