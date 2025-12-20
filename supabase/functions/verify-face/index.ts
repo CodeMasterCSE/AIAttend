@@ -22,6 +22,37 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // Distance in meters
 }
 
+// Inline attendance window validation
+function validateAttendanceWindow(session: any, currentTime: Date = new Date()) {
+  const sessionStartTime = new Date(`${session.date}T${session.start_time}Z`);
+  const windowMinutes = session.attendance_window_minutes ?? 15;
+  const windowEndTime = new Date(sessionStartTime.getTime() + windowMinutes * 60 * 1000);
+  const sessionDurationMinutes = session.session_duration_minutes ?? 60;
+  const sessionEndTime = new Date(sessionStartTime.getTime() + sessionDurationMinutes * 60 * 1000);
+  
+  const now = currentTime.getTime();
+  const windowEndMs = windowEndTime.getTime();
+  const sessionEndMs = sessionEndTime.getTime();
+  
+  if (!session.is_active) {
+    return { isOpen: false, isLate: false, error: 'Session has ended' };
+  }
+  
+  if (now > sessionEndMs) {
+    return { isOpen: false, isLate: false, error: 'Session has expired' };
+  }
+  
+  const isWindowOpen = now <= windowEndMs;
+  const lateThresholdMs = sessionStartTime.getTime() + 10 * 60 * 1000;
+  const isLate = now > lateThresholdMs && now <= windowEndMs;
+  
+  return {
+    isOpen: isWindowOpen,
+    isLate,
+    error: isWindowOpen ? undefined : 'Attendance window has closed. Please contact your professor for manual attendance.',
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -75,9 +106,13 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     });
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -108,18 +143,30 @@ serve(async (req) => {
 
     const storedFaceData = JSON.parse(faceRecord.embedding);
 
-    // Verify the session is active
-    const { data: session, error: sessionError } = await supabase
+    // Verify the session is active - include window columns
+    const { data: session, error: sessionError } = await supabaseAdmin
       .from('attendance_sessions')
-      .select('id, class_id, is_active')
+      .select('id, class_id, is_active, date, start_time, attendance_window_minutes, session_duration_minutes')
       .eq('id', sessionId)
-      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Session not found or not active' 
+        error: 'Session not found' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // SERVER-SIDE ATTENDANCE WINDOW VALIDATION
+    const windowResult = validateAttendanceWindow(session);
+    
+    if (!windowResult.isOpen) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: windowResult.error,
+        windowClosed: true 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -142,9 +189,7 @@ serve(async (req) => {
       });
     }
 
-    // -------------------------------
     // Geofence (GPS proximity) check
-    // -------------------------------
     const { data: classData, error: classError } = await supabase
       .from('classes')
       .select('latitude, longitude, proximity_radius_meters, room')
@@ -171,7 +216,7 @@ serve(async (req) => {
       });
     }
 
-    const allowedRadius = classData.proximity_radius_meters || 50; // meters
+    const allowedRadius = classData.proximity_radius_meters || 50;
     const distance = calculateDistance(
       latitude,
       longitude,
@@ -180,7 +225,6 @@ serve(async (req) => {
     );
 
     if (distance > allowedRadius) {
-      // Return 200 with success:false so client can read the response body
       return new Response(JSON.stringify({
         success: false,
         error: 'You are not within the classroom proximity.',
@@ -193,7 +237,7 @@ serve(async (req) => {
     }
 
     // Check if already marked attendance
-    const { data: existingRecord } = await supabase
+    const { data: existingRecord } = await supabaseAdmin
       .from('attendance_records')
       .select('id')
       .eq('session_id', sessionId)
@@ -361,10 +405,9 @@ Return ONLY valid JSON, no markdown or explanation.`
     }
 
     const confidenceScore = verificationResult.confidence_score || 0;
-    const matchScore = confidenceScore / 100; // Convert to 0-1 scale for storage
+    const matchScore = confidenceScore / 100;
     const similarityResult = verificationResult.similarity_result;
     
-    // Accept "likely_same" or "uncertain" with high confidence
     const isVerified = similarityResult === 'likely_same' || 
                        (similarityResult === 'uncertain' && confidenceScore >= 70);
 
@@ -379,21 +422,21 @@ Return ONLY valid JSON, no markdown or explanation.`
       });
     }
 
-    // Mark attendance
-    const { error: insertError } = await supabase
+    // Mark attendance with late_submission flag
+    const { error: insertError } = await supabaseAdmin
       .from('attendance_records')
       .insert({
         session_id: sessionId,
         class_id: session.class_id,
         student_id: user.id,
         method_used: 'face',
-        status: 'present',
-        verification_score: matchScore
+        status: windowResult.isLate ? 'late' : 'present',
+        verification_score: matchScore,
+        late_submission: windowResult.isLate,
       });
 
     if (insertError) {
       console.error('Attendance recording failed:', JSON.stringify(insertError));
-      // Return 200 with success:false so client can read the response body
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Failed to mark attendance: ' + (insertError.message || 'Unknown error'),
@@ -405,15 +448,16 @@ Return ONLY valid JSON, no markdown or explanation.`
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Face verified! Attendance marked successfully.',
+      message: `Face verified! Attendance marked successfully.${windowResult.isLate ? ' (Late)' : ''}`,
       matchScore,
+      isLate: windowResult.isLate,
       confidence: verificationResult.confidence
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Face verification error');
+    console.error('Face verification error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: 'Internal server error' 

@@ -14,10 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_audit_log: {
+        Row: {
+          action: string
+          attendance_record_id: string | null
+          created_at: string
+          id: string
+          marked_by: string
+          new_status: string | null
+          previous_status: string | null
+          reason: string
+          session_id: string
+          student_id: string
+        }
+        Insert: {
+          action: string
+          attendance_record_id?: string | null
+          created_at?: string
+          id?: string
+          marked_by: string
+          new_status?: string | null
+          previous_status?: string | null
+          reason: string
+          session_id: string
+          student_id: string
+        }
+        Update: {
+          action?: string
+          attendance_record_id?: string | null
+          created_at?: string
+          id?: string
+          marked_by?: string
+          new_status?: string | null
+          previous_status?: string | null
+          reason?: string
+          session_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_audit_log_attendance_record_id_fkey"
+            columns: ["attendance_record_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_audit_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           class_id: string
           id: string
+          late_submission: boolean
+          manual_reason: string | null
           method_used: string
           session_id: string
           status: string
@@ -28,6 +84,8 @@ export type Database = {
         Insert: {
           class_id: string
           id?: string
+          late_submission?: boolean
+          manual_reason?: string | null
           method_used: string
           session_id: string
           status?: string
@@ -38,6 +96,8 @@ export type Database = {
         Update: {
           class_id?: string
           id?: string
+          late_submission?: boolean
+          manual_reason?: string | null
           method_used?: string
           session_id?: string
           status?: string
@@ -64,32 +124,38 @@ export type Database = {
       }
       attendance_sessions: {
         Row: {
+          attendance_window_minutes: number
           class_id: string
           created_at: string
           date: string
           end_time: string | null
           id: string
           is_active: boolean
+          session_duration_minutes: number
           start_time: string
           updated_at: string
         }
         Insert: {
+          attendance_window_minutes?: number
           class_id: string
           created_at?: string
           date?: string
           end_time?: string | null
           id?: string
           is_active?: boolean
+          session_duration_minutes?: number
           start_time: string
           updated_at?: string
         }
         Update: {
+          attendance_window_minutes?: number
           class_id?: string
           created_at?: string
           date?: string
           end_time?: string | null
           id?: string
           is_active?: boolean
+          session_duration_minutes?: number
           start_time?: string
           updated_at?: string
         }
