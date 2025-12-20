@@ -9,12 +9,19 @@ export interface AttendanceSession {
   start_time: string;
   end_time: string | null;
   is_active: boolean;
+  attendance_window_minutes: number;
+  session_duration_minutes: number;
   classes: {
     id: string;
     subject: string;
     code: string;
     room: string;
   };
+}
+
+export interface SessionConfig {
+  attendanceWindowMinutes: number;
+  sessionDurationMinutes: number;
 }
 
 export function useAttendanceSessions() {
@@ -36,6 +43,8 @@ export function useAttendanceSessions() {
           start_time,
           end_time,
           is_active,
+          attendance_window_minutes,
+          session_duration_minutes,
           classes (
             id,
             subject,
@@ -56,7 +65,7 @@ export function useAttendanceSessions() {
     }
   };
 
-  const createSession = async (classId: string) => {
+  const createSession = async (classId: string, config?: SessionConfig) => {
     const now = new Date();
     const startTime = now.toTimeString().slice(0, 8);
 
@@ -66,6 +75,8 @@ export function useAttendanceSessions() {
         class_id: classId,
         start_time: startTime,
         is_active: true,
+        attendance_window_minutes: config?.attendanceWindowMinutes ?? 15,
+        session_duration_minutes: config?.sessionDurationMinutes ?? 60,
       })
       .select(`
         id,
@@ -74,6 +85,8 @@ export function useAttendanceSessions() {
         start_time,
         end_time,
         is_active,
+        attendance_window_minutes,
+        session_duration_minutes,
         classes (
           id,
           subject,

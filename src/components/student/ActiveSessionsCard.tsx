@@ -4,9 +4,59 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Radio, Clock, MapPin, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAttendanceWindow, formatTimeRemaining } from '@/hooks/useAttendanceWindow';
+
+function SessionTimeRemaining({ 
+  sessionDate, 
+  sessionStartTime, 
+  attendanceWindowMinutes 
+}: { 
+  sessionDate: string; 
+  sessionStartTime: string; 
+  attendanceWindowMinutes: number;
+}) {
+  const windowState = useAttendanceWindow({
+    sessionDate,
+    sessionStartTime,
+    attendanceWindowMinutes,
+    isActive: true,
+  });
+
+  if (!windowState.isOpen) {
+    return (
+      <Badge variant="destructive" className="text-xs">
+        Window Closed
+      </Badge>
+    );
+  }
+
+  const isCritical = windowState.remainingWindowSeconds <= 60;
+  const isWarning = windowState.remainingWindowSeconds <= 180;
+
+  return (
+    <Badge 
+      className={cn(
+        "text-xs",
+        isCritical && "bg-destructive/10 text-destructive border-destructive/20 animate-pulse",
+        isWarning && !isCritical && "bg-warning/10 text-warning border-warning/20",
+        !isWarning && "bg-green-500/10 text-green-500 border-green-500/20"
+      )}
+    >
+      {formatTimeRemaining(windowState.remainingWindowSeconds)} left
+    </Badge>
+  );
+}
 
 interface ActiveSessionsCardProps {
-  onSelectSession?: (sessionId: string, classInfo: { subject: string; code: string; room: string; classId: string }) => void;
+  onSelectSession?: (sessionId: string, classInfo: { 
+    subject: string; 
+    code: string; 
+    room: string; 
+    classId: string;
+    sessionDate: string;
+    sessionStartTime: string;
+    attendanceWindowMinutes: number;
+  }) => void;
   className?: string;
 }
 
@@ -93,6 +143,11 @@ export function ActiveSessionsCard({ onSelectSession, className }: ActiveSession
                     {session.start_time?.slice(0, 5)}
                   </span>
                 </div>
+                <SessionTimeRemaining
+                  sessionDate={session.date}
+                  sessionStartTime={session.start_time}
+                  attendanceWindowMinutes={session.attendance_window_minutes}
+                />
               </div>
               {onSelectSession && (
                 <Button
@@ -103,6 +158,9 @@ export function ActiveSessionsCard({ onSelectSession, className }: ActiveSession
                     code: session.classes?.code || '',
                     room: session.classes?.room || '',
                     classId: session.class_id,
+                    sessionDate: session.date,
+                    sessionStartTime: session.start_time,
+                    attendanceWindowMinutes: session.attendance_window_minutes,
                   })}
                 >
                   <QrCode className="w-4 h-4 mr-1" />

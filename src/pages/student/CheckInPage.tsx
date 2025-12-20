@@ -7,6 +7,7 @@ import { QRScanner } from '@/components/attendance/QRScanner';
 import { FaceCheckIn } from '@/components/attendance/FaceCheckIn';
 import { ProximityCheckIn } from '@/components/attendance/ProximityCheckIn';
 import { ActiveSessionsCard } from '@/components/student/ActiveSessionsCard';
+import { StudentWindowTimer } from '@/components/student/StudentWindowTimer';
 import { 
   ScanFace, 
   QrCode, 
@@ -25,6 +26,9 @@ interface SelectedClass {
   room: string;
   sessionId: string;
   classId: string;
+  sessionDate: string;
+  sessionStartTime: string;
+  attendanceWindowMinutes: number;
 }
 
 export default function CheckInPage() {
@@ -33,7 +37,18 @@ export default function CheckInPage() {
   const [selectedClass, setSelectedClass] = useState<SelectedClass | null>(null);
   const { toast } = useToast();
 
-  const handleSelectSession = (sessionId: string, classInfo: { subject: string; code: string; room: string; classId: string }) => {
+  const handleSelectSession = (
+    sessionId: string, 
+    classInfo: { 
+      subject: string; 
+      code: string; 
+      room: string; 
+      classId: string;
+      sessionDate: string;
+      sessionStartTime: string;
+      attendanceWindowMinutes: number;
+    }
+  ) => {
     setSelectedClass({ ...classInfo, sessionId });
     setSelectedMethod('face');
     setStatus('idle');
@@ -82,17 +97,25 @@ export default function CheckInPage() {
 
         {/* Selected Class Info */}
         {selectedClass && (
-          <div className="rounded-2xl gradient-bg p-6 text-primary-foreground">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/70">Selected Class</p>
-                <h2 className="text-xl font-bold">{selectedClass.subject}</h2>
-                <p className="text-sm text-white/80">{selectedClass.code} • {selectedClass.room}</p>
+          <div className="space-y-4">
+            <div className="rounded-2xl gradient-bg p-6 text-primary-foreground">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/70">Selected Class</p>
+                  <h2 className="text-xl font-bold">{selectedClass.subject}</h2>
+                  <p className="text-sm text-white/80">{selectedClass.code} • {selectedClass.room}</p>
+                </div>
+                <Badge className="bg-white/20 text-white border-white/30">
+                  Ready to Check In
+                </Badge>
               </div>
-              <Badge className="bg-white/20 text-white border-white/30">
-                Ready to Check In
-              </Badge>
             </div>
+            <StudentWindowTimer
+              sessionDate={selectedClass.sessionDate}
+              sessionStartTime={selectedClass.sessionStartTime}
+              attendanceWindowMinutes={selectedClass.attendanceWindowMinutes}
+              isActive={true}
+            />
           </div>
         )}
 
