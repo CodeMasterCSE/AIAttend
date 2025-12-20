@@ -25,30 +25,6 @@ Deno.serve(async (req) => {
     // Extract the JWT token from the header
     const token = authHeader.replace('Bearer ', '');
 
-    // Create auth client with user's token to validate authentication
-    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Validate user authentication
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('Auth validation failed:', userError?.message);
-      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const userId = user.id;
-
     // Create service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -56,6 +32,19 @@ Deno.serve(async (req) => {
         persistSession: false,
       },
     });
+
+    // Validate user authentication by passing token explicitly
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      console.error('Auth validation failed:', userError?.message, 'Token prefix:', token.substring(0, 20));
+      return new Response(JSON.stringify({ error: 'Authentication failed', details: userError?.message }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userId = user.id;
 
     const { sessionId } = await req.json();
     
