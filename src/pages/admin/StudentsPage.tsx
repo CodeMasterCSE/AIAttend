@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, GraduationCap, Loader2, Mail, Building, Edit, Trash2 } from 'lucide-react';
+import { Search, MoreVertical, GraduationCap, Loader2, Mail, Building, Edit, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddStudentDialog } from '@/components/admin/AddStudentDialog';
 import { EditStudentDialog } from '@/components/admin/EditStudentDialog';
@@ -52,6 +52,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -122,6 +123,34 @@ export default function StudentsPage() {
     student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (student.roll_number?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // Group students by department
+  const groupedStudents = filteredStudents.reduce((acc, student) => {
+    const dept = student.department || 'No Department';
+    if (!acc[dept]) {
+      acc[dept] = [];
+    }
+    acc[dept].push(student);
+    return acc;
+  }, {} as Record<string, Student[]>);
+
+  const sortedDepartments = Object.keys(groupedStudents).sort();
+
+  const toggleDept = (dept: string) => {
+    setExpandedDepts(prev => ({
+      ...prev,
+      [dept]: !prev[dept]
+    }));
+  };
+
+  // Initialize expanded state when students change (expand all by default or just first)
+  useEffect(() => {
+    if (sortedDepartments.length > 0 && Object.keys(expandedDepts).length === 0) {
+      const initial: Record<string, boolean> = {};
+      sortedDepartments.forEach((d, i) => initial[d] = i === 0); // Open first one by default
+      setExpandedDepts(initial);
+    }
+  }, [students]);
 
   return (
     <DashboardLayout>
@@ -207,67 +236,95 @@ export default function StudentsPage() {
                 <p className="text-muted-foreground">No students found</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Roll Number</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.map((student) => (
-                    <TableRow key={student.user_id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={student.photo_url || ''} />
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {student.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-muted-foreground">{student.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{student.roll_number || '-'}</Badge>
-                      </TableCell>
-                      <TableCell>{student.department || '-'}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(student.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>View Attendance</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setEditingStudent(student)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeletingStudent(student)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-8">
+                {sortedDepartments.map((dept) => (
+                  <div key={dept} className="space-y-4">
+                    <div
+                      className="flex items-center gap-2 px-1 cursor-pointer hover:opacity-80 transition-opacity select-none"
+                      onClick={() => toggleDept(dept)}
+                    >
+                      {expandedDepts[dept] ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+
+                      <Badge variant="secondary" className="px-3 py-1 text-sm font-medium">
+                        {dept}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        &bull; {groupedStudents[dept].length} student{groupedStudents[dept].length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {expandedDepts[dept] && (
+                      <div className="rounded-md border animate-in slide-in-from-top-2 duration-200">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Student</TableHead>
+                              <TableHead>Roll Number</TableHead>
+                              <TableHead>Department</TableHead>
+                              <TableHead>Joined</TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {groupedStudents[dept].map((student) => (
+                              <TableRow key={student.user_id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-9 w-9">
+                                      <AvatarImage src={student.photo_url || ''} />
+                                      <AvatarFallback className="bg-primary/10 text-primary">
+                                        {student.name.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium">{student.name}</p>
+                                      <p className="text-sm text-muted-foreground">{student.email}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{student.roll_number || '-'}</Badge>
+                                </TableCell>
+                                <TableCell>{student.department || '-'}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {new Date(student.created_at).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                                      <DropdownMenuItem>View Attendance</DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => setEditingStudent(student)}>
+                                        <Edit className="h-4 w-4 mr-2" /> Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setDeletingStudent(student)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

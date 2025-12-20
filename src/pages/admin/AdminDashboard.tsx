@@ -49,6 +49,7 @@ export default function AdminDashboard() {
     departments: [] as { name: string, students: number, faculty: number, attendance: number }[],
     recentActivity: [] as { action: string, user: string, time: string, type: string }[],
     trendData: [] as { week: string, attendance: number }[],
+    lowAttendanceList: [] as { id: string, name: string, rollNumber: string, attendance: number }[],
     isLoading: true
   });
 
@@ -59,12 +60,12 @@ export default function AdminDashboard() {
           supabase.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
           supabase.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'professor'),
           supabase.from('classes').select('id, department', { count: 'exact' }),
-          supabase.from('profiles').select('department, user_id, name'),
+          supabase.from('profiles').select('department, user_id, name, roll_number'),
           supabase.from('user_roles').select('user_id, role'),
           supabase.from('profiles').select('name, created_at, user_id').order('created_at', { ascending: false }).limit(3),
           supabase.from('classes').select('subject, created_at').order('created_at', { ascending: false }).limit(2),
           supabase.from('attendance_sessions').select('id, date').gte('date', format(subWeeks(new Date(), 4), 'yyyy-MM-dd')),
-          supabase.from('attendance_records').select('session_id, status, class_id').gte('timestamp', subWeeks(new Date(), 4).toISOString())
+          supabase.from('attendance_records').select('session_id, status, class_id, student_id').gte('timestamp', subWeeks(new Date(), 4).toISOString())
         ]);
 
         const rolesMap = (rolesRes.data || []).reduce((acc, r) => {
@@ -73,7 +74,9 @@ export default function AdminDashboard() {
         }, {} as Record<string, string>);
 
         const deptMap = (profilesRes.data || []).reduce((acc, p) => {
-          const dept = p.department || 'Other';
+          const dept = (p.department || 'Other').trim();
+          // Use a normalized key for storage but keep the original name for display if needed
+          // For simplicity in this fix, we will just use the trimmed name as the key
           if (!acc[dept]) acc[dept] = { students: 0, faculty: 0 };
 
           if (rolesMap[p.user_id] === 'student') acc[dept].students++;
@@ -83,7 +86,7 @@ export default function AdminDashboard() {
         }, {} as Record<string, { students: number, faculty: number }>);
 
         const classDeptMap = (classesRes.data || []).reduce((acc, cls) => {
-          acc[cls.id] = cls.department;
+          acc[cls.id] = (cls.department || '').trim();
           return acc;
         }, {} as Record<string, string>);
 
@@ -99,12 +102,18 @@ export default function AdminDashboard() {
           }
         });
 
-        const departmentData = Object.entries(deptMap).map(([name, counts]) => {
+        // Initialize deptMap with all departments from classes as well, to ensure we catch those without users but with classes
+        const allDepts = new Set([...Object.keys(deptMap), ...Object.values(classDeptMap)]);
+
+        const departmentData = Array.from(allDepts).map(name => {
+          const counts = deptMap[name] || { students: 0, faculty: 0 };
           const att = deptAttendance[name];
           const attendancePct = att && att.total > 0 ? Math.round((att.present / att.total) * 100) : 0;
+
           return {
             name,
-            ...counts,
+            students: counts.students,
+            faculty: counts.faculty,
             attendance: attendancePct
           };
         }).sort((a, b) => b.students - a.students).slice(0, 4);
@@ -146,6 +155,32 @@ export default function AdminDashboard() {
           trends.push({ week: `Week ${4 - i}`, attendance: percentage });
         }
 
+        // Calculate Low Attendance Students
+        const studentAttendance = {} as Record<string, { total: number, present: number }>;
+        records.forEach(r => {
+          if (!studentAttendance[r.student_id]) studentAttendance[r.student_id] = { total: 0, present: 0 };
+          studentAttendance[r.student_id].total++;
+          if (r.status === 'present' || r.status === 'late') {
+            studentAttendance[r.student_id].present++;
+          }
+        });
+
+        const profilesMap = (profilesRes.data || []).reduce((acc, p) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const lowAttendanceList = Object.entries(studentAttendance)
+          .map(([id, data]) => ({
+            id,
+            name: profilesMap[id]?.name || 'Unknown',
+            rollNumber: profilesMap[id]?.roll_number || '-',
+            attendance: Math.round((data.present / data.total) * 100)
+          }))
+          .filter(s => s.attendance < 75 && rolesMap[s.id] === 'student')
+          .sort((a, b) => a.attendance - b.attendance)
+          .slice(0, 5);
+
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         const todayCount = sessions.filter(s => s.date === todayStr).length;
 
@@ -160,6 +195,7 @@ export default function AdminDashboard() {
           ],
           recentActivity: activities,
           trendData: trends,
+          lowAttendanceList: lowAttendanceList,
           isLoading: false
         });
       } catch (error) {
@@ -180,20 +216,7 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground">Manage your institution's attendance system</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" asChild>
-              <Link to="/admin/analytics">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Analytics
-              </Link>
-            </Button>
-            <Button variant="gradient" asChild>
-              <Link to="/admin/students">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Student
-              </Link>
-            </Button>
-          </div>
+
         </div>
 
         {/* Stats Grid */}
@@ -283,9 +306,29 @@ export default function AdminDashboard() {
               Students with attendance below 75%
             </p>
             <div className="space-y-3">
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">No low attendance alerts</p>
-              </div>
+              {stats.lowAttendanceList.map((student) => (
+                <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-warning/20">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-warning/20 text-warning text-xs">
+                        {student.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">{student.rollNumber}</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-warning border-warning/50">
+                    {student.attendance}%
+                  </Badge>
+                </div>
+              ))}
+              {stats.lowAttendanceList.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">No low attendance alerts</p>
+                </div>
+              )}
             </div>
             <Button variant="outline" className="w-full mt-4" asChild>
               <Link to="/admin/students">

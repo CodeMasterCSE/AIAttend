@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Search, MoreVertical, BookOpen, Loader2, Users, Building, MapPin, Edit, Trash2, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddClassDialog } from '@/components/admin/AddClassDialog';
 import { ManageClassEnrollmentsDialog } from '@/components/admin/ManageClassEnrollmentsDialog';
@@ -56,6 +56,7 @@ export default function AdminClassesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingClass, setEditingClass] = useState<ClassData | null>(null);
   const [deletingClass, setDeletingClass] = useState<ClassData | null>(null);
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -160,6 +161,34 @@ export default function AdminClassesPage() {
     cls.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Group classes by department
+  const groupedClasses = filteredClasses.reduce((acc, cls) => {
+    const dept = cls.department || 'No Department';
+    if (!acc[dept]) {
+      acc[dept] = [];
+    }
+    acc[dept].push(cls);
+    return acc;
+  }, {} as Record<string, ClassData[]>);
+
+  const sortedDepartments = Object.keys(groupedClasses).sort();
+
+  const toggleDept = (dept: string) => {
+    setExpandedDepts(prev => ({
+      ...prev,
+      [dept]: !prev[dept]
+    }));
+  };
+
+  // Initialize expanded state when classes change
+  useEffect(() => {
+    if (sortedDepartments.length > 0 && Object.keys(expandedDepts).length === 0) {
+      const initial: Record<string, boolean> = {};
+      sortedDepartments.forEach((d, i) => initial[d] = i === 0);
+      setExpandedDepts(initial);
+    }
+  }, [classes]);
+
   const totalEnrollments = classes.reduce((sum, c) => sum + (c.enrollment_count || 0), 0);
 
   return (
@@ -261,77 +290,105 @@ export default function AdminClassesPage() {
                 <p className="text-muted-foreground">No classes found</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Professor</TableHead>
-                    <TableHead>Room</TableHead>
-                    <TableHead>Enrollments</TableHead>
-                    <TableHead>Join Code</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClasses.map((cls) => (
-                    <TableRow key={cls.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{cls.subject}</p>
-                          <p className="text-sm text-muted-foreground">{cls.code}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{cls.department}</TableCell>
-                      <TableCell>{cls.professor_name}</TableCell>
-                      <TableCell>{cls.room}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{cls.enrollment_count}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {cls.join_code ? (
-                          <code className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                            {cls.join_code}
-                          </code>
-                        ) : (
-                          <Badge variant="destructive">Missing</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <ManageClassEnrollmentsDialog classId={cls.id} className={cls.subject} />
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>View Sessions</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {!cls.join_code && (
-                                <DropdownMenuItem onClick={() => handleRegenerateCode(cls.id, cls.join_code)}>
-                                  <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Code
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem onClick={() => setEditingClass(cls)}>
-                                <Edit className="h-4 w-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => setDeletingClass(cls)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-8">
+                {sortedDepartments.map((dept) => (
+                  <div key={dept} className="space-y-4">
+                    <div
+                      className="flex items-center gap-2 px-1 cursor-pointer hover:opacity-80 transition-opacity select-none"
+                      onClick={() => toggleDept(dept)}
+                    >
+                      {expandedDepts[dept] ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+
+                      <Badge variant="secondary" className="px-3 py-1 text-sm font-medium">
+                        {dept}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        &bull; {groupedClasses[dept].length} class{groupedClasses[dept].length !== 1 ? 'es' : ''}
+                      </span>
+                    </div>
+
+                    {expandedDepts[dept] && (
+                      <div className="rounded-md border animate-in slide-in-from-top-2 duration-200">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Class</TableHead>
+                              <TableHead>Department</TableHead>
+                              <TableHead>Professor</TableHead>
+                              <TableHead>Room</TableHead>
+                              <TableHead>Enrollments</TableHead>
+                              <TableHead>Join Code</TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {groupedClasses[dept].map((cls) => (
+                              <TableRow key={cls.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{cls.subject}</p>
+                                    <p className="text-sm text-muted-foreground">{cls.code}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{cls.department}</TableCell>
+                                <TableCell>{cls.professor_name}</TableCell>
+                                <TableCell>{cls.room}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{cls.enrollment_count}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {cls.join_code ? (
+                                    <code className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                                      {cls.join_code}
+                                    </code>
+                                  ) : (
+                                    <Badge variant="destructive">Missing</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <ManageClassEnrollmentsDialog classId={cls.id} className={cls.subject} />
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                                        <DropdownMenuItem>View Sessions</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        {!cls.join_code && (
+                                          <DropdownMenuItem onClick={() => handleRegenerateCode(cls.id, cls.join_code)}>
+                                            <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Code
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem onClick={() => setEditingClass(cls)}>
+                                          <Edit className="h-4 w-4 mr-2" /> Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => setDeletingClass(cls)}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

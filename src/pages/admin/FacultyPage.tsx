@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MoreVertical, UserCog, Loader2, BookOpen, Building, Edit, Trash2 } from 'lucide-react';
+import { Search, MoreVertical, UserCog, Loader2, BookOpen, Building, Edit, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddProfessorDialog } from '@/components/admin/AddProfessorDialog';
 import { EditProfessorDialog } from '@/components/admin/EditProfessorDialog';
@@ -53,6 +53,7 @@ export default function FacultyPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
   const [deletingProfessor, setDeletingProfessor] = useState<Professor | null>(null);
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -140,6 +141,34 @@ export default function FacultyPage() {
     (prof.employee_id?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Group professors by department
+  const groupedProfessors = filteredProfessors.reduce((acc, prof) => {
+    const dept = prof.department || 'No Department';
+    if (!acc[dept]) {
+      acc[dept] = [];
+    }
+    acc[dept].push(prof);
+    return acc;
+  }, {} as Record<string, Professor[]>);
+
+  const sortedDepartments = Object.keys(groupedProfessors).sort();
+
+  const toggleDept = (dept: string) => {
+    setExpandedDepts(prev => ({
+      ...prev,
+      [dept]: !prev[dept]
+    }));
+  };
+
+  // Initialize expanded state when professors change
+  useEffect(() => {
+    if (sortedDepartments.length > 0 && Object.keys(expandedDepts).length === 0) {
+      const initial: Record<string, boolean> = {};
+      sortedDepartments.forEach((d, i) => initial[d] = i === 0);
+      setExpandedDepts(initial);
+    }
+  }, [professors]);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -226,71 +255,99 @@ export default function FacultyPage() {
                 <p className="text-muted-foreground">No faculty members found</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Faculty Member</TableHead>
-                    <TableHead>Employee ID</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Classes</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProfessors.map((professor) => (
-                    <TableRow key={professor.user_id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={professor.photo_url || ''} />
-                            <AvatarFallback className="bg-accent/10 text-accent">
-                              {professor.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{professor.name}</p>
-                            <p className="text-sm text-muted-foreground">{professor.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{professor.employee_id || '-'}</Badge>
-                      </TableCell>
-                      <TableCell>{professor.department || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{professor.class_count || 0}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(professor.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>View Classes</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setEditingProfessor(professor)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeletingProfessor(professor)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-8">
+                {sortedDepartments.map((dept) => (
+                  <div key={dept} className="space-y-4">
+                    <div
+                      className="flex items-center gap-2 px-1 cursor-pointer hover:opacity-80 transition-opacity select-none"
+                      onClick={() => toggleDept(dept)}
+                    >
+                      {expandedDepts[dept] ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+
+                      <Badge variant="secondary" className="px-3 py-1 text-sm font-medium">
+                        {dept}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        &bull; {groupedProfessors[dept].length} member{groupedProfessors[dept].length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {expandedDepts[dept] && (
+                      <div className="rounded-md border animate-in slide-in-from-top-2 duration-200">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Faculty Member</TableHead>
+                              <TableHead>Employee ID</TableHead>
+                              <TableHead>Department</TableHead>
+                              <TableHead>Classes</TableHead>
+                              <TableHead>Joined</TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {groupedProfessors[dept].map((professor) => (
+                              <TableRow key={professor.user_id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-9 w-9">
+                                      <AvatarImage src={professor.photo_url || ''} />
+                                      <AvatarFallback className="bg-accent/10 text-accent">
+                                        {professor.name.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium">{professor.name}</p>
+                                      <p className="text-sm text-muted-foreground">{professor.email}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{professor.employee_id || '-'}</Badge>
+                                </TableCell>
+                                <TableCell>{professor.department || '-'}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{professor.class_count || 0}</Badge>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {new Date(professor.created_at).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                                      <DropdownMenuItem>View Classes</DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => setEditingProfessor(professor)}>
+                                        <Edit className="h-4 w-4 mr-2" /> Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setDeletingProfessor(professor)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
