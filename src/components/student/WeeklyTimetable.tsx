@@ -10,19 +10,18 @@ interface WeeklyTimetableProps {
   isLoading?: boolean;
 }
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const DAY_LABELS: Record<string, string> = {
   monday: 'Mon',
   tuesday: 'Tue',
   wednesday: 'Wed',
   thursday: 'Thu',
   friday: 'Fri',
-  saturday: 'Sat',
 };
 
 const TIME_SLOTS = [
-  '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00', '18:00',
+  '10:00', '10:50', '11:40', '12:30',
+  '13:00', '13:50', '14:40', '15:30', '16:20', '17:10'
 ];
 
 const COLORS = [
@@ -57,6 +56,11 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
     const ampm = h >= 12 ? 'PM' : 'AM';
     const hour12 = h % 12 || 12;
     return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const getMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
   };
 
   const getCurrentDay = () => {
@@ -94,71 +98,119 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full">
-          <div className="min-w-[700px]">
+          <div className="min-w-[1000px] pb-4">
             {/* Header */}
-            <div className="grid grid-cols-7 gap-2 mb-4">
-              <div className="text-xs font-medium text-muted-foreground p-2">Time</div>
-              {DAYS.map(day => (
+            <div className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 mb-4">
+              <div className="flex items-center justify-center text-xs font-medium text-muted-foreground p-2 bg-muted/5 rounded-lg">
+                Day / Time
+              </div>
+              {TIME_SLOTS.map(timeSlot => (
                 <div
-                  key={day}
-                  className={`text-center p-2 rounded-lg text-sm font-medium ${
-                    currentDay === day
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted/50'
-                  }`}
+                  key={timeSlot}
+                  className="text-center p-2 rounded-lg text-xs font-medium text-muted-foreground bg-muted/50 flex items-center justify-center"
                 >
-                  {DAY_LABELS[day]}
+                  {formatTime(timeSlot)}
                 </div>
               ))}
             </div>
 
             {/* Time Grid */}
-            <div className="space-y-1">
-              {TIME_SLOTS.map(timeSlot => (
-                <div key={timeSlot} className="grid grid-cols-7 gap-2 min-h-[60px]">
-                  <div className="text-xs text-muted-foreground p-2 pt-0">
-                    {formatTime(timeSlot)}
+            <div className="space-y-2">
+              {DAYS.map(day => (
+                <div key={day} className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 min-h-[100px]">
+                  {/* Day Label */}
+                  <div
+                    className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium ${currentDay === day
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/50'
+                      }`}
+                  >
+                    {DAY_LABELS[day]}
                   </div>
-                  {DAYS.map(day => {
-                    const daySchedules = schedulesByDay[day].filter(s => {
-                      const startHour = parseInt(s.start_time.split(':')[0]);
-                      const slotHour = parseInt(timeSlot.split(':')[0]);
-                      return startHour === slotHour;
-                    });
 
-                    return (
-                      <div key={`${day}-${timeSlot}`} className="relative">
-                        {daySchedules.map(schedule => (
-                          <div
-                            key={schedule.id}
-                            className={`absolute inset-x-0 rounded-lg border p-2 text-xs ${
-                              classColorMap[schedule.class_id]
-                            }`}
-                            style={{
-                              minHeight: '56px',
-                            }}
-                          >
-                            <div className="font-semibold truncate">
-                              {schedule.classes?.code}
-                            </div>
-                            <div className="text-[10px] opacity-80 truncate">
-                              {schedule.classes?.subject}
-                            </div>
-                            <div className="flex items-center gap-1 text-[10px] opacity-70 mt-1">
-                              <Clock className="w-3 h-3" />
-                              {formatTime(schedule.start_time)}
-                            </div>
-                            {schedule.classes?.room && (
-                              <div className="flex items-center gap-1 text-[10px] opacity-70">
-                                <MapPin className="w-3 h-3" />
-                                {schedule.classes.room}
-                              </div>
-                            )}
+                  {/* Time Slots */}
+                  {(() => {
+                    const cells = [];
+                    let skipCount = 0;
+
+                    for (let i = 0; i < TIME_SLOTS.length; i++) {
+                      if (skipCount > 0) {
+                        skipCount--;
+                        continue;
+                      }
+
+                      const timeSlot = TIME_SLOTS[i];
+
+                      // Handle Break Slot
+                      if (timeSlot === '12:30') {
+                        cells.push(
+                          <div key={`${day}-${timeSlot}`} className="flex items-center justify-center rounded-lg bg-muted/30 border border-dashed border-muted p-1">
+                            <span className="text-xs font-medium text-muted-foreground/70 rotate-0">
+                              Break
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })}
+                        );
+                        continue;
+                      }
+
+                      // Find schedule starting at this slot
+                      const daySchedules = schedulesByDay[day] || [];
+                      const startingSchedule = daySchedules.find(s => {
+                        const scheduleMinutes = getMinutes(s.start_time);
+                        const slotMinutes = getMinutes(timeSlot);
+                        return Math.abs(scheduleMinutes - slotMinutes) < 10;
+                      });
+
+                      if (startingSchedule) {
+                        const duration = getMinutes(startingSchedule.end_time) - getMinutes(startingSchedule.start_time);
+                        const span = Math.max(1, Math.ceil(duration / 50));
+
+                        // Just render the single schedule card for this slot
+                        cells.push(
+                          <div
+                            key={`${day}-${timeSlot}`}
+                            style={{ gridColumn: `span ${span}` }}
+                            className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1"
+                          >
+                            <div
+                              key={startingSchedule.id}
+                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${classColorMap[startingSchedule.class_id]
+                                }`}
+                            >
+                              <div>
+                                <div className="font-semibold truncate leading-tight">
+                                  {startingSchedule.classes?.code}
+                                </div>
+                                <div className="text-[10px] opacity-80 truncate leading-tight">
+                                  {startingSchedule.classes?.subject}
+                                </div>
+                              </div>
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1 text-[10px] opacity-70">
+                                  <Clock className="w-3 h-3" />
+                                  {formatTime(startingSchedule.start_time)} - {formatTime(startingSchedule.end_time)}
+                                </div>
+                                {startingSchedule.classes?.room && (
+                                  <div className="flex items-center gap-1 text-[10px] opacity-70">
+                                    <MapPin className="w-3 h-3" />
+                                    {startingSchedule.classes.room}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+
+                        skipCount = span - 1;
+                      } else {
+                        // Empty slot
+                        cells.push(
+                          <div key={`${day}-${timeSlot}`} className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1 opacity-50"></div>
+                        );
+                      }
+                    }
+                    return cells;
+                  })()}
                 </div>
               ))}
             </div>
