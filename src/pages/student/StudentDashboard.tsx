@@ -6,10 +6,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  ScanFace, 
-  Calendar, 
-  CheckCircle2, 
+import {
+  ScanFace,
+  Calendar,
+  CheckCircle2,
   BookOpen,
   TrendingUp,
   ArrowRight,
@@ -88,10 +88,10 @@ export default function StudentDashboard() {
                 )}
               </div>
               <p className="text-muted-foreground">
-                {stats.overallAttendance >= 75 
-                  ? "Your attendance is looking great!" 
-                  : stats.overallAttendance > 0 
-                    ? "Keep up with your attendance!" 
+                {stats.overallAttendance >= 75
+                  ? "Your attendance is looking great!"
+                  : stats.overallAttendance > 0
+                    ? "Keep up with your attendance!"
                     : "Ready for today's classes?"}
               </p>
             </div>
@@ -187,7 +187,7 @@ export default function StudentDashboard() {
                           <h4 className="font-medium">{course.subject}</h4>
                           <p className="text-sm text-muted-foreground">{course.code} • {course.room}</p>
                         </div>
-                        <Badge 
+                        <Badge
                           variant={course.attendancePercentage >= 75 ? "default" : "destructive"}
                           className={course.attendancePercentage >= 75 ? "bg-green-500/10 text-green-600 border-green-500/30" : ""}
                         >
@@ -199,8 +199,8 @@ export default function StudentDashboard() {
                           <span>{course.attendedSessions} of {course.totalSessions} sessions attended</span>
                           <span>{course.attendancePercentage >= 75 ? "Good standing" : "Needs attention"}</span>
                         </div>
-                        <Progress 
-                          value={course.attendancePercentage} 
+                        <Progress
+                          value={course.attendancePercentage}
                           className="h-2"
                         />
                       </div>
@@ -229,27 +229,27 @@ export default function StudentDashboard() {
                   <AreaChart data={weeklyData}>
                     <defs>
                       <linearGradient id="attendanceGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                       }}
                       formatter={(value: number) => [`${value}%`, 'Attendance']}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="attendance" 
-                      stroke="hsl(var(--primary))" 
+                    <Area
+                      type="monotone"
+                      dataKey="attendance"
+                      stroke="hsl(var(--primary))"
                       strokeWidth={2}
-                      fill="url(#attendanceGradient)" 
+                      fill="url(#attendanceGradient)"
                     />
                   </AreaChart>
                 </ResponsiveContainer>

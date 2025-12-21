@@ -6,15 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { useClasses } from '@/hooks/useClasses';
 import { useAttendanceRecords } from '@/hooks/useAttendanceRecords';
 import { useAttendanceSessions } from '@/hooks/useAttendanceSessions';
-import { 
-  Users, 
-  BookOpen, 
-  TrendingUp, 
+import {
+  Users,
+  BookOpen,
+  TrendingUp,
   Clock,
   Play,
   Download,
   Calendar,
   ArrowRight,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -31,11 +34,34 @@ import {
 } from 'recharts';
 import { AttendanceChatbot } from '@/components/chatbot/AttendanceChatbot';
 
+import { useClassSchedules } from '@/hooks/useClassSchedules';
+
 export default function ProfessorDashboard() {
   const { classes, isLoading } = useClasses();
   const { records } = useAttendanceRecords();
   const { sessions } = useAttendanceSessions();
-  const firstClass = classes[0];
+  const { schedules } = useClassSchedules();
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const now = new Date();
+  const currentDay = days[now.getDay()];
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const todaysScheduleCount = useMemo(() => {
+    return schedules.filter(s => s.day.toLowerCase() === currentDay).length;
+  }, [schedules, currentDay]);
+
+  const nextClass = useMemo(() => {
+    const todaysSchedules = schedules.filter(s => s.day.toLowerCase() === currentDay);
+
+    const upcoming = todaysSchedules.filter(s => {
+      const [h, m] = s.start_time.split(':').map(Number);
+      return (h * 60 + m) > currentMinutes;
+    }).sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    return upcoming[0];
+  }, [schedules, currentDay, currentMinutes]);
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
@@ -81,74 +107,105 @@ export default function ProfessorDashboard() {
     <DashboardLayout>
       <div className="space-y-8 animate-fade-in">
         {/* Header / Hero */}
-        <div className="rounded-2xl gradient-bg p-6 md:p-7 text-primary-foreground relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
-          <div className="relative z-10 flex flex-col gap-4 md:gap-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="rounded-2xl gradient-bg p-6 md:p-8 text-primary-foreground relative overflow-hidden shadow-lg">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+
+          <div className="relative z-10 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                  <Play className="w-5 h-5 md:w-6 md:h-6" />
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner">
+                  <Play className="w-6 h-6 md:w-7 md:h-7 text-white" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h1 className="text-xl md:text-2xl font-bold leading-tight">
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <h1 className="text-xl md:text-2xl font-bold leading-tight tracking-tight">
                       Today&apos;s Teaching Overview
                     </h1>
-                    <Badge className="bg-white/15 border-white/25 text-xs md:text-sm">
-                      {today}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="bg-white/20 border-white/30 text-xs hover:bg-white/30 transition-colors">
+                        {today}
+                      </Badge>
+                      <Badge variant="outline" className="text-white/90 border-white/20 text-xs">
+                        {classes.length} Active Classes
+                      </Badge>
+                    </div>
                   </div>
-                  <p className="text-xs md:text-sm text-white/80 max-w-xl">
-                    Monitor live attendance, start a new session, and keep track of how your classes are performing
-                    in one place.
+                  <p className="text-sm md:text-base text-white/85 font-medium">
+                    You have <span className="text-white font-bold">{todaysScheduleCount}</span> classes scheduled for today.
+                    {todaysScheduleCount > 0 ? " Ready to inspire?" : " Enjoy your day off!"}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 md:gap-6">
-                <div className="text-right">
-                  <p className="text-2xl md:text-3xl font-bold">{classes.length}</p>
-                  <p className="text-xs md:text-sm text-white/80">Active classes</p>
-                </div>
+
+              <div className="flex items-center">
                 <Button
                   variant="glass"
+                  size="lg"
                   asChild
-                  className="bg-white/10 hover:bg-white/20 border-white/20"
+                  className="bg-white/10 hover:bg-white/20 border-white/20 shadow-lg group transition-all duration-300 hover:scale-105"
                   disabled={!classes.length}
                 >
                   <Link to="/professor/sessions">
-                    Start Session
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                    <span className="mr-2">Start New Session</span>
+                    <div className="bg-white/20 rounded-full p-1 group-hover:bg-white/30 transition-colors">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
                   </Link>
                 </Button>
               </div>
             </div>
 
-            {firstClass ? (
-              <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm text-white/85 border-t border-white/15 pt-3 mt-1">
-                <span className="inline-flex items-center gap-2">
-                  <Badge className="bg-white/15 border-white/20 text-xs">
-                    Next class
-                  </Badge>
-                  <span className="font-medium">{firstClass.subject}</span>
-                  <span className="opacity-80">({firstClass.code})</span>
-                </span>
-                <span className="opacity-80">• Room {firstClass.room}</span>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-white/85 border-t border-white/15 pt-3 mt-1">
-                <span>No classes yet. Create a class to start taking attendance.</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="border-white/40 bg-white/10 hover:bg-white/20 text-xs md:text-sm h-8 px-3"
-                >
-                  <Link to="/professor/classes">
-                    Manage Classes
-                  </Link>
-                </Button>
-              </div>
-            )}
+            {/* Next Class Card */}
+            <div className="bg-white/10 rounded-xl p-4 md:p-5 border border-white/10 backdrop-blur-md">
+              {nextClass ? (
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="text-xs text-white/60 uppercase tracking-wider font-semibold mb-1">Up Next</div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-lg md:text-xl font-bold">{nextClass.classes?.subject}</span>
+                      <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 border-none">
+                        {nextClass.classes?.code}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 md:gap-8 text-sm md:text-base border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="p-1.5 rounded-lg bg-white/10">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">
+                        {new Date(`2000-01-01T${nextClass.start_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="p-1.5 rounded-lg bg-white/10">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <span>Room {nextClass.classes?.room}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-white/70">
+                    <div className="p-2 rounded-full bg-white/5">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <span>No more classes scheduled for today.</span>
+                  </div>
+                  <Button
+                    variant="link"
+                    asChild
+                    className="text-white hover:text-white/80 p-0 h-auto font-medium"
+                  >
+                    <Link to="/professor/classes">
+                      Manage Schedule <ArrowRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -172,8 +229,29 @@ export default function ProfessorDashboard() {
             title="Avg. Attendance"
             value={`${attendanceStats.avgPercentage}%`}
             subtitle="Present rate"
-            icon={TrendingUp}
-            variant="success"
+            icon={(() => {
+              const p = attendanceStats.avgPercentage;
+              if (p >= 80) return CheckCircle2;
+              if (p >= 60) return TrendingUp;
+              if (p >= 40) return AlertTriangle;
+              return AlertCircle;
+            })()}
+            className={(() => {
+              const p = attendanceStats.avgPercentage;
+              if (p >= 80) return "bg-green-500/10 border-green-200/50";
+              if (p >= 60) return "bg-lime-500/10 border-lime-200/50";
+              if (p >= 40) return "bg-yellow-500/10 border-yellow-200/50";
+              if (p >= 20) return "bg-orange-500/10 border-orange-200/50";
+              return "bg-red-500/10 border-red-200/50";
+            })()}
+            iconClassName={(() => {
+              const p = attendanceStats.avgPercentage;
+              if (p >= 80) return "bg-green-500/20 text-green-700";
+              if (p >= 60) return "bg-lime-500/20 text-lime-700";
+              if (p >= 40) return "bg-yellow-500/20 text-yellow-700";
+              if (p >= 20) return "bg-orange-500/20 text-orange-700";
+              return "bg-red-500/20 text-red-700";
+            })()}
           />
           <StatsCard
             title="Active Sessions"

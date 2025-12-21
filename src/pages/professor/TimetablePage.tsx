@@ -11,10 +11,12 @@ export default function ProfessorTimetablePage() {
   // Count unique classes and total weekly hours
   const uniqueClasses = [...new Set(schedules.map(s => s.class_id))].length;
   const totalHours = schedules.reduce((acc, s) => {
-    const start = parseInt(s.start_time.split(':')[0]);
-    const end = parseInt(s.end_time.split(':')[0]);
-    return acc + (end - start);
-  }, 0);
+    const [startH, startM] = s.start_time.split(':').map(Number);
+    const [endH, endM] = s.end_time.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return acc + (endMinutes - startMinutes);
+  }, 0) / 60;
 
   return (
     <DashboardLayout>
@@ -50,7 +52,7 @@ export default function ProfessorTimetablePage() {
                   <Clock className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalHours}</p>
+                  <p className="text-2xl font-bold">{Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}</p>
                   <p className="text-sm text-muted-foreground">Hours/Week</p>
                 </div>
               </div>

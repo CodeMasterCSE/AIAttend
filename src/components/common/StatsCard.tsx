@@ -12,6 +12,7 @@ interface StatsCardProps {
   };
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'accent';
   className?: string;
+  iconClassName?: string;
 }
 
 const variantStyles = {
@@ -30,14 +31,15 @@ const iconVariantStyles = {
   accent: 'bg-accent text-accent-foreground',
 };
 
-export function StatsCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon: Icon, 
-  trend, 
+export function StatsCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  trend,
   variant = 'default',
-  className 
+  className,
+  iconClassName
 }: StatsCardProps) {
   return (
     <div className={cn(
@@ -65,7 +67,8 @@ export function StatsCard({
         </div>
         <div className={cn(
           "p-3 rounded-xl",
-          iconVariantStyles[variant]
+          iconVariantStyles[variant],
+          iconClassName
         )}>
           <Icon className="w-6 h-6" />
         </div>
