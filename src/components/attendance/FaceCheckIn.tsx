@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, CheckCircle, XCircle, Loader2, Scan, AlertCircle, PartyPopper } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, Loader2, Scan, AlertCircle, PartyPopper, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -11,8 +11,7 @@ interface FaceCheckInProps {
   onSuccess?: () => void;
 }
 
-type StatusType = 'idle' | 'success' | 'already_checked_in' | 'error';
-
+type StatusType = 'idle' | 'success' | 'flagged' | 'already_checked_in' | 'error';
 
 export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProps) {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -22,12 +21,11 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Helper to get current GPS position (used to sync proximity with face recognition)
+  // Helper to get current GPS position
   const getCurrentPosition = () => {
     return new Promise<GeolocationPosition>((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -101,10 +99,8 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
     setStatusMessage('');
 
     try {
-      // Prompt for GPS as soon as face check-in starts (does not block camera)
-      ensureLocationPermission().catch(() => {
-        // User may decline; verification step will enforce GPS again with a clear error
-      });
+      // Request GPS permission early
+      ensureLocationPermission().catch(() => {});
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera API not supported');
@@ -155,7 +151,7 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
   }, []);
 
   const captureAndVerify = useCallback(async () => {
-    // Ensure we have GPS before proceeding with face verification
+    // Ensure we have GPS before proceeding
     let position: GeolocationPosition;
     try {
       position = await ensureLocationPermission();
@@ -192,12 +188,11 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
     ctx.restore();
     
     const imageData = canvas.toDataURL('image/jpeg', 0.9);
-    setCapturedImage(imageData);
-    console.log('Captured image for verification, length:', imageData.length);
+    console.log('Captured image for verification');
     setIsVerifying(true);
     setStatus('idle');
     
-    // Store verification image in database (async, don't block verification)
+    // Store verification image (async, don't block)
     supabase.from('verification_images').insert({
       user_id: (await supabase.auth.getUser()).data.user?.id,
       image_data: imageData,
@@ -222,22 +217,31 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
       if (error) {
         console.error('Verification error:', error);
         setStatus('error');
-        setStatusMessage('Failed to verify face. Please try again.');
-        toast.error('Failed to verify face. Please try again.');
+        setStatusMessage('Verification failed. Please try again.');
+        toast.error('Verification failed. Please try again.');
         setIsVerifying(false);
         return;
       }
 
       if (data.success) {
-        setStatus('success');
-        setMatchScore(data.matchScore);
-        setStatusMessage('Attendance marked successfully!');
-        toast.success('Attendance marked successfully!');
+        // Check if flagged for professor review
+        if (data.verificationStatus === 'flagged') {
+          setStatus('flagged');
+          setMatchScore(data.matchScore);
+          setStatusMessage('Attendance recorded for professor review.');
+          toast.success('Attendance recorded! Your professor will confirm.');
+        } else {
+          setStatus('success');
+          setMatchScore(data.matchScore);
+          setStatusMessage('Attendance marked successfully!');
+          toast.success('Attendance marked successfully!');
+        }
         stopCamera();
         onSuccess?.();
       } else {
-        // Check if it's a duplicate attendance
         const errorMsg = data.error || 'Verification failed';
+        
+        // Check for duplicate attendance
         if (errorMsg.toLowerCase().includes('already marked') || errorMsg.toLowerCase().includes('already checked')) {
           setStatus('already_checked_in');
           setStatusMessage('You have already checked in for this session.');
@@ -245,22 +249,29 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
           stopCamera();
           onSuccess?.();
         } else {
-          const proximityDetails =
-            typeof data.distance === 'number' && typeof data.allowedRadius === 'number'
-              ? ` (Distance: ${data.distance}m, Allowed: ${data.allowedRadius}m${data.room ? `, Room: ${data.room}` : ''})`
-              : '';
-
+          // Show simplified error - no technical details
           setStatus('error');
           setMatchScore(data.matchScore || null);
-          setStatusMessage(`${errorMsg}${proximityDetails}`);
-          toast.error(errorMsg);
+          
+          // Simplify error messages for users
+          let userMessage = errorMsg;
+          if (errorMsg.includes('proximity')) {
+            userMessage = 'You are not close enough to the classroom. Please move closer and try again.';
+          } else if (data.verificationStatus === 'no_face') {
+            userMessage = 'Face not detected. Please look at the camera.';
+          } else if (data.verificationStatus === 'rejected') {
+            userMessage = 'Face verification failed. Try again or use another check-in method.';
+          }
+          
+          setStatusMessage(userMessage);
+          toast.error(userMessage);
         }
       }
     } catch (error) {
       console.error('Verification error:', error);
       setStatus('error');
-      setStatusMessage('Failed to verify face. Please try again.');
-      toast.error('Failed to verify face. Please try again.');
+      setStatusMessage('Verification failed. Please try again.');
+      toast.error('Verification failed. Please try again.');
     } finally {
       setIsVerifying(false);
     }
@@ -271,13 +282,12 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
     setMatchScore(null);
     setCameraError(null);
     setStatusMessage('');
-    setCapturedImage(null);
     if (!isCapturing) {
       startCamera();
     }
   };
 
-  const isSuccessState = status === 'success' || status === 'already_checked_in';
+  const isSuccessState = status === 'success' || status === 'already_checked_in' || status === 'flagged';
 
   return (
     <Card className={className}>
@@ -325,7 +335,7 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
           {isVerifying && (
             <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-              <span className="text-sm">Verifying face...</span>
+              <span className="text-sm">Verifying...</span>
             </div>
           )}
           
@@ -336,11 +346,16 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
               <span className="text-green-600 text-center mt-1">
                 Your attendance has been recorded.
               </span>
-              {matchScore && (
-                <span className="text-sm text-green-600 mt-2">
-                  Face Match: {(matchScore * 100).toFixed(0)}%
-                </span>
-              )}
+            </div>
+          )}
+
+          {status === 'flagged' && (
+            <div className="absolute inset-0 bg-amber-500/20 flex flex-col items-center justify-center p-4">
+              <Clock className="h-16 w-16 text-amber-500 mb-2" />
+              <span className="text-amber-700 font-bold text-lg">Pending Review</span>
+              <span className="text-amber-600 text-center mt-1">
+                Attendance recorded. Your professor will confirm.
+              </span>
             </div>
           )}
 
@@ -349,7 +364,7 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
               <CheckCircle className="h-16 w-16 text-blue-500 mb-2" />
               <span className="text-blue-700 font-bold text-lg">Already Checked In</span>
               <span className="text-blue-600 text-center mt-1">
-                Your attendance was already recorded for this session.
+                Your attendance was already recorded.
               </span>
             </div>
           )}
@@ -358,14 +373,9 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
             <div className="absolute inset-0 bg-red-500/20 flex flex-col items-center justify-center p-4">
               <XCircle className="h-16 w-16 text-red-500 mb-2" />
               <span className="text-red-700 font-medium">Verification Failed</span>
-              <span className="text-sm text-red-600 text-center mt-1">
+              <span className="text-sm text-red-600 text-center mt-1 max-w-xs">
                 {statusMessage || 'Please try again'}
               </span>
-              {matchScore !== null && (
-                <span className="text-sm text-red-600 mt-1">
-                  Match: {(matchScore * 100).toFixed(0)}%
-                </span>
-              )}
             </div>
           )}
           
@@ -376,37 +386,13 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
                 <div className="w-48 h-60 border-2 border-dashed border-primary/50 rounded-full" />
               </div>
               <div className="absolute bottom-4 left-0 right-0 text-center text-sm text-muted-foreground bg-background/70 py-1">
-                Position your face within the oval
+                Position your face in the oval
               </div>
             </div>
           )}
         </div>
         
         <canvas ref={canvasRef} className="hidden" />
-
-        {/* Captured Image Preview */}
-        {capturedImage && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Captured Verification Image:</p>
-            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
-              <img 
-                src={capturedImage} 
-                alt="Captured face for verification" 
-                className="w-full h-full object-cover"
-              />
-              {status === 'success' && (
-                <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
-                  Verified
-                </div>
-              )}
-              {status === 'error' && (
-                <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                  Failed
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="flex gap-2">
           {!isCapturing && status === 'idle' && (
@@ -420,7 +406,7 @@ export function FaceCheckIn({ sessionId, className, onSuccess }: FaceCheckInProp
             <>
               <Button onClick={captureAndVerify} className="flex-1" disabled={!cameraReady}>
                 <Scan className="h-4 w-4 mr-2" />
-                {cameraReady ? 'Verify & Check In' : 'Loading...'}
+                {cameraReady ? 'Verify' : 'Loading...'}
               </Button>
               <Button variant="outline" onClick={stopCamera}>
                 Cancel

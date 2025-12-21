@@ -278,6 +278,7 @@ serve(async (req) => {
       }
     }
 
+    // LENIENT AI PROMPT - optimized for real-world classroom conditions
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -289,57 +290,59 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a visual similarity analysis system assisting an AI attendance platform.
-You are NOT a biometric identity verifier.
+            content: `You are a LENIENT face verification system for classroom attendance.
 
-TASK:
-Compare the human face in the provided image with a reference image and determine whether they are LIKELY to belong to the same person.
+CRITICAL: Your goal is to HELP students check in, not to block them. Be forgiving of imperfect conditions.
 
-REFERENCE FACIAL FEATURES (stored during registration):
-${JSON.stringify(storedFaceData.face_features, null, 2)}
+REFERENCE FACIAL FEATURES (from registration):
+${JSON.stringify(storedFaceData.facial_signature || storedFaceData.face_features || storedFaceData, null, 2)}
 
-RULES:
-1. First validate image quality:
-   - Exactly one human face
-   - Clear visibility
-   - No heavy obstruction
-2. If validation fails, return "invalid".
+STEP 1 - FACE DETECTION (only hard requirement):
+- Is there a human face visible in the image? 
+- If NO face is detected at all, return "no_face"
+- If a face IS visible (even partially, with glasses, in dim light), proceed to Step 2
 
-SIMILARITY ANALYSIS:
-- Compare overall facial appearance:
-  - Face shape
-  - Relative proportions
-  - Hairline and hairstyle (if visible)
-  - Eye spacing
-  - Nose and jaw structure
-- Use holistic visual similarity, not exact identity matching.
+STEP 2 - SIMILARITY CHECK (be generous):
+Compare the face with the reference. Consider:
+- Overall face shape
+- Eye spacing and position
+- Nose and mouth proportions
+- Jawline structure
 
-CONFIDENCE GUIDELINES:
-- High similarity → "likely_same"
-- Moderate similarity → "uncertain"
-- Low similarity → "likely_different"
+SCORING GUIDELINES (be lenient):
+- 70-100: High confidence match → "verified"
+- 40-69: Some similarity but not certain → "flagged" (allow with professor review)
+- 0-39: Clearly different person → "rejected"
 
-IMPORTANT:
-- Do NOT be overly conservative.
-- If the faces appear visually similar, allow "likely_same".
-- This is an attendance verification system, not forensic identification.
+DO NOT REJECT FOR:
+- Slightly blurry images
+- Low or uneven lighting
+- Glasses on/off differences
+- Slight angle variations
+- Minor expression differences
+- Average camera quality
 
-OUTPUT FORMAT (JSON ONLY):
+ONLY REJECT IF:
+- No face is detected at all
+- Face is clearly a different person (score < 40)
+- Obvious spoofing attempt (photo of a photo)
+
+OUTPUT FORMAT (JSON only):
 {
-  "status": "valid | invalid",
-  "similarity_result": "likely_same | uncertain | likely_different",
-  "confidence_score": number (0–100),
-  "reason": "brief explanation"
+  "face_detected": true | false,
+  "verification_status": "verified" | "flagged" | "rejected" | "no_face",
+  "confidence_score": number (0-100),
+  "reason": "brief, non-technical explanation"
 }
 
-Return ONLY valid JSON, no markdown or explanation.`
+IMPORTANT: When in doubt, use "flagged" instead of "rejected". Let professors make final decisions.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Analyze this face image and compare it with the stored reference facial features for attendance verification.'
+                text: 'Verify this face for attendance. Be lenient - this is a real classroom with imperfect conditions.'
               },
               {
                 type: 'image_url',
@@ -394,35 +397,38 @@ Return ONLY valid JSON, no markdown or explanation.`
       });
     }
 
-    // Handle invalid image status
-    if (verificationResult.status === 'invalid') {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: verificationResult.reason || 'Invalid image. Please ensure your face is clearly visible with no obstructions.' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const confidenceScore = verificationResult.confidence_score || 0;
     const matchScore = confidenceScore / 100;
-    const similarityResult = verificationResult.similarity_result;
-    
-    const isVerified = similarityResult === 'likely_same' || 
-                       (similarityResult === 'uncertain' && confidenceScore >= 70);
+    const verificationStatus = verificationResult.verification_status;
 
-    if (!isVerified) {
+    // Handle no face detected - simple message
+    if (!verificationResult.face_detected || verificationStatus === 'no_face') {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: `Face verification failed. ${verificationResult.reason || 'Faces do not appear to match.'} (Confidence: ${confidenceScore}%)`,
-        matchScore,
-        similarityResult
+        error: 'Face not detected. Please look at the camera and try again.',
+        verificationStatus: 'no_face'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Mark attendance with late_submission flag
+    // Handle clear rejection (different person)
+    if (verificationStatus === 'rejected') {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Face does not match your registered profile. Please try again or use another check-in method.',
+        matchScore,
+        verificationStatus: 'rejected'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Determine final status for attendance record
+    const isFlagged = verificationStatus === 'flagged';
+    const attendanceStatus = isFlagged ? 'flagged' : (windowResult.isLate ? 'late' : 'present');
+
+    // Mark attendance - allow both verified and flagged
     const { error: insertError } = await supabaseAdmin
       .from('attendance_records')
       .insert({
@@ -430,9 +436,10 @@ Return ONLY valid JSON, no markdown or explanation.`
         class_id: session.class_id,
         student_id: user.id,
         method_used: 'face',
-        status: windowResult.isLate ? 'late' : 'present',
+        status: attendanceStatus,
         verification_score: matchScore,
         late_submission: windowResult.isLate,
+        manual_reason: isFlagged ? `Flagged: ${verificationResult.reason || 'Low confidence match'}` : null,
       });
 
     if (insertError) {
@@ -446,12 +453,18 @@ Return ONLY valid JSON, no markdown or explanation.`
       });
     }
 
+    // Success response
+    const message = isFlagged 
+      ? 'Attendance recorded for review. Your professor will confirm.'
+      : `Face verified! Attendance marked successfully.${windowResult.isLate ? ' (Late)' : ''}`;
+
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Face verified! Attendance marked successfully.${windowResult.isLate ? ' (Late)' : ''}`,
+      message,
       matchScore,
       isLate: windowResult.isLate,
-      confidence: verificationResult.confidence
+      verificationStatus: isFlagged ? 'flagged' : 'verified',
+      confidence: confidenceScore
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

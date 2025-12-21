@@ -71,7 +71,7 @@ async function fetchWithRetry(
   throw new Error('Max retries exceeded');
 }
 
-// Analyze ALL face images in a SINGLE API call
+// Analyze ALL face images in a SINGLE API call - LENIENT version
 async function analyzeAllFaces(
   captures: CaptureData,
   apiKey: string
@@ -102,28 +102,46 @@ async function analyzeAllFaces(
       messages: [
         {
           role: 'system',
-          content: `You are an expert face verification system for attendance. Analyze the 5 face images provided (front, left, right, up, blink) in a SINGLE analysis.
+          content: `You are a LENIENT face registration system for classroom attendance.
+
+CRITICAL: Your goal is to HELP students register, not to block them. Be forgiving of imperfect conditions.
+
+Analyze the 5 face images provided (front, left, right, up, blink).
 
 TASKS:
-1. Verify each image contains exactly ONE real human face
-2. Confirm ALL 5 images show the SAME person
-3. Perform anti-spoofing check (reject photos of photos, screens, printed images)
-4. Verify the blink image shows natural eye movement (liveness check)
-5. Generate a stable facial signature for future verification
+1. Check that each image contains a human face (be lenient - partial visibility is OK)
+2. Confirm ALL images show the SAME person (focus on major features, ignore minor differences)
+3. Basic anti-spoofing check (reject only obvious photos of screens/printouts)
+4. Verify blink shows natural eye movement (any visible eye movement counts)
+5. Generate a facial signature for future verification
 
-VALIDATION RULES:
-- Each face must be clearly visible, not blurred, not heavily obstructed
-- Reject if images appear to be spoofed or from different people
-- Check for consistent lighting and natural appearance across all angles
+LENIENT VALIDATION - ACCEPT if:
+- Face is visible in most images (minor blur/lighting issues are OK)
+- Same person is recognizable across images
+- No obvious spoofing attempts
+- Some eye movement detected in blink image
+
+ONLY REJECT if:
+- NO face visible in multiple images
+- CLEARLY different people in images
+- OBVIOUS spoofing (photo of a photo, screen display)
+- Zero natural movement (completely static across all images)
+
+DO NOT REJECT FOR:
+- Slightly blurry images
+- Low or uneven lighting
+- Glasses, minor obstructions
+- Imperfect angles
+- Average camera quality
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
-  "overall_status": "success | failure",
-  "overall_reason": "brief explanation",
+  "overall_status": "success" | "failure",
+  "overall_reason": "brief, encouraging explanation",
   "is_same_person": true | false,
   "liveness_confirmed": true | false,
-  "quality_score": number (0-100),
-  "facial_signature": "detailed textual descriptor of distinguishing features: face shape, eye spacing, nose structure, jawline, unique characteristics",
+  "quality_score": number (0-100, be generous),
+  "facial_signature": "detailed textual descriptor of distinguishing features",
   "angle_results": {
     "front": { "valid": true|false, "reason": "..." },
     "left": { "valid": true|false, "reason": "..." },
@@ -133,17 +151,14 @@ OUTPUT FORMAT (STRICT JSON ONLY):
   }
 }
 
-IMPORTANT:
-- Be LENIENT for legitimate real faces with minor quality issues
-- Focus on confirming same person and liveness, not perfect image quality
-- If faces are real and same person, return success even with minor issues`
+IMPORTANT: When in doubt, return SUCCESS. Real users in real classrooms with real devices should succeed.`
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Analyze these 5 face images for registration. Images are in order: front, left, right, up, blink. Verify same person, liveness, and generate facial signature.'
+              text: 'Register this student face. Be lenient - this is a real classroom with imperfect conditions. Images: front, left, right, up, blink.'
             },
             ...images
           ]
@@ -233,46 +248,54 @@ serve(async (req) => {
     console.log('Analyzing all face captures in single request...');
     const analysis = await analyzeAllFaces(captures, LOVABLE_API_KEY);
 
-    // Validate results
+    // Lenient validation - only reject for clear failures
     if (analysis.overall_status === 'failure') {
+      // Check if it's a minor issue we can overlook
+      const hasValidFront = analysis.angle_results?.front?.valid !== false;
+      const isSamePerson = analysis.is_same_person !== false;
+      
+      // If front is valid and same person, allow registration anyway
+      if (hasValidFront && isSamePerson) {
+        console.log('Overriding failure - front valid and same person detected');
+        analysis.overall_status = 'success';
+      } else {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: analysis.overall_reason || 'Please try again with better lighting'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Relaxed same person check - trust unless clearly false
+    if (analysis.is_same_person === false) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: analysis.overall_reason || 'Face verification failed'
+        error: 'Please ensure only your face is visible during registration.'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (!analysis.is_same_person) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'The captured images do not appear to be the same person. Please try again.'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!analysis.liveness_confirmed) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Liveness check failed. Please ensure you blink naturally during capture.'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Relaxed liveness check - accept if not explicitly false
+    if (analysis.liveness_confirmed === false) {
+      // Give one more chance - maybe just warn
+      console.log('Liveness not confirmed but proceeding with registration');
     }
 
     // Create embedding data
     const comprehensiveEmbedding = {
       facial_signature: analysis.facial_signature,
-      quality_score: analysis.quality_score,
+      quality_score: analysis.quality_score || 70, // Default to decent score
       angle_results: analysis.angle_results,
       registered_at: new Date().toISOString(),
-      registration_method: 'multi_angle_secure_v3',
+      registration_method: 'multi_angle_lenient_v4',
     };
 
     const embeddingJson = JSON.stringify(comprehensiveEmbedding);
 
-    // Store the face embedding (skip duplicate check to reduce API calls)
+    // Store the face embedding
     const { data: existingFace } = await supabase
       .from('face_embeddings')
       .select('id')
@@ -308,8 +331,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Face registered securely with multi-angle verification',
-      quality_score: analysis.quality_score
+      message: 'Face registered successfully!',
+      quality_score: analysis.quality_score || 70
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -318,7 +341,7 @@ serve(async (req) => {
     console.error('Secure registration error:', error instanceof Error ? error.message : 'Unknown error');
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error instanceof Error ? error.message : 'Registration failed' 
+      error: error instanceof Error ? error.message : 'Registration failed. Please try again.' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
