@@ -59,18 +59,21 @@ import {
 } from 'lucide-react';
 import { BulkStudentImport } from '@/components/professor/BulkStudentImport';
 import { ScheduleManager } from '@/components/professor/ScheduleManager';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useDepartments } from '@/hooks/useDepartments';
 
 export default function ClassManagementPage() {
   const { classes, isLoading: classesLoading, createClass, updateClass, deleteClass, refreshClasses } = useClasses();
+  const { departments } = useDepartments();
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const { enrollments, isLoading: enrollmentsLoading, enrollStudent, removeEnrollment } = useEnrollments(selectedClass?.id);
-  
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
-  
+
   const [newClass, setNewClass] = useState({
     subject: '',
     code: '',
@@ -81,7 +84,7 @@ export default function ClassManagementPage() {
     longitude: null as number | null,
     proximity_radius_meters: 50,
   });
-  
+
   const [studentEmail, setStudentEmail] = useState('');
 
   const handleConfirmDeleteClass = async () => {
@@ -229,12 +232,21 @@ export default function ClassManagementPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      placeholder="e.g., Computer Science"
+                    <Select
                       value={newClass.department}
-                      onChange={(e) => setNewClass({ ...newClass, department: e.target.value })}
-                    />
+                      onValueChange={(value) => setNewClass({ ...newClass, department: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.name}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="semester">Semester</Label>
@@ -246,12 +258,12 @@ export default function ClassManagementPage() {
                     />
                   </div>
                 </div>
-                
+
                 <LocationPicker
                   latitude={newClass.latitude}
                   longitude={newClass.longitude}
                   proximityRadius={newClass.proximity_radius_meters}
-                  onLocationChange={(lat, lng, radius) => 
+                  onLocationChange={(lat, lng, radius) =>
                     setNewClass({ ...newClass, latitude: lat, longitude: lng, proximity_radius_meters: radius })
                   }
                 />
@@ -277,7 +289,7 @@ export default function ClassManagementPage() {
               <BookOpen className="w-5 h-5" />
               Your Classes
             </h2>
-            
+
             {classesLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -295,11 +307,10 @@ export default function ClassManagementPage() {
                 {classes.map((cls) => (
                   <Card
                     key={cls.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedClass?.id === cls.id
-                        ? 'border-primary ring-2 ring-primary/20'
-                        : 'hover:border-primary/50'
-                    }`}
+                    className={`cursor-pointer transition-all hover:shadow-md ${selectedClass?.id === cls.id
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'hover:border-primary/50'
+                      }`}
                     onClick={() => setSelectedClass(cls)}
                   >
                     <CardContent className="p-4">
@@ -339,7 +350,7 @@ export default function ClassManagementPage() {
                         </span>
                       </div>
                       <div className="mt-3 pt-3 border-t border-border">
-                        <div 
+                        <div
                           className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -400,8 +411,8 @@ export default function ClassManagementPage() {
                           />
                         </DialogContent>
                       </Dialog>
-                      <BulkStudentImport 
-                        classId={selectedClass.id} 
+                      <BulkStudentImport
+                        classId={selectedClass.id}
                         className={selectedClass.subject}
                         onSuccess={() => {
                           // Refresh enrollments by re-selecting the class

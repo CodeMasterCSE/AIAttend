@@ -13,6 +13,7 @@ interface Professor {
   user_id: string;
   name: string;
   email: string;
+  department?: string;
 }
 
 interface AddClassDialogProps {
@@ -51,7 +52,7 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
         const professorIds = roleData.map(r => r.user_id);
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('user_id, name, email')
+          .select('user_id, name, email, department')
           .in('user_id', professorIds);
 
         setProfessors(profilesData || []);
@@ -134,7 +135,7 @@ export function AddClassDialog({ onSuccess }: AddClassDialogProps) {
               <SelectContent className="bg-popover">
                 {professors.map((prof) => (
                   <SelectItem key={prof.user_id} value={prof.user_id}>
-                    {prof.name} ({prof.email})
+                    {prof.name} {prof.department ? `- ${prof.department}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
