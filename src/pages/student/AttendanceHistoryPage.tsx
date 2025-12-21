@@ -1,11 +1,13 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
-import { Calendar, CheckCircle, XCircle, Loader2, ScanFace, QrCode, MapPin } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Loader2, ScanFace, QrCode, MapPin, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { StudentAttendanceReportPDF } from '@/components/student/StudentAttendanceReportPDF';
 
 interface AttendanceRecord {
   id: string;
@@ -37,7 +39,7 @@ export default function AttendanceHistoryPage() {
   useEffect(() => {
     const fetchEnrolledClasses = async () => {
       if (!user?.id) return;
-      
+
       const { data, error } = await supabase
         .from('class_enrollments')
         .select(`
@@ -49,7 +51,7 @@ export default function AttendanceHistoryPage() {
           )
         `)
         .eq('student_id', user.id);
-      
+
       if (!error && data) {
         const classes = data
           .filter((e: any) => e.classes)
@@ -61,7 +63,7 @@ export default function AttendanceHistoryPage() {
         setEnrolledClasses(classes);
       }
     };
-    
+
     fetchEnrolledClasses();
   }, [user?.id]);
 
@@ -123,6 +125,35 @@ export default function AttendanceHistoryPage() {
     return <Badge variant="destructive">Absent</Badge>;
   };
 
+  const downloadCSV = () => {
+    if (records.length === 0) return;
+
+    const headers = ['Class Subject', 'Class Code', 'Date', 'Time', 'Method', 'Status'];
+    const rows = records.map((r) => [
+      r.classes?.subject || 'Unknown',
+      r.classes?.code || '-',
+      format(new Date(r.timestamp), 'yyyy-MM-dd'),
+      format(new Date(r.timestamp), 'HH:mm:ss'),
+      r.method_used,
+      r.status,
+    ]);
+
+    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // Find selected class info for filename
+    const selectedClass = enrolledClasses.find(c => c.id === selectedClassId);
+    a.download = `my-attendance-${selectedClass?.code || 'all-classes'}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const selectedClass = enrolledClasses.find(c => c.id === selectedClassId);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -131,9 +162,9 @@ export default function AttendanceHistoryPage() {
             <h1 className="text-2xl font-bold">Attendance History</h1>
             <p className="text-muted-foreground">View your attendance records across all classes</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Classes" />
               </SelectTrigger>
               <SelectContent>
@@ -145,6 +176,18 @@ export default function AttendanceHistoryPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button onClick={downloadCSV} disabled={records.length === 0} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              CSV
+            </Button>
+
+            <StudentAttendanceReportPDF
+              records={records}
+              className={selectedClass?.subject || 'All Classes'}
+              classCode={selectedClass?.code}
+              disabled={records.length === 0}
+            />
           </div>
         </div>
 
