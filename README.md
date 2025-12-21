@@ -1,73 +1,146 @@
-# Welcome to your Lovable project
+# AttendEase - Intelligent Attendance Management System
 
-## Project info
+AttendEase is a modern, AI-powered attendance tracking application designed to streamline the process for students, professors, and administrators. It leverages facial recognition, geolocation, and QR codes to ensure secure and efficient attendance verification.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Features
 
-## How can I edit this code?
+### 🎓 Student Portal
+*   **Multi-Method Check-in**:
+    *   **Face Verification**: AI-based biometric verification using face embeddings.
+    *   **QR Code**: Dynamic QR scanning for validation.
+    *   **GPS Proximity**: Location-based checks to ensure students are physically in the classroom.
+*   **Real-time Dashboard**: View active sessions and attendance stats.
+*   **History & Reports**: Track attendance records and percentage per subject.
+*   **Timetable**: digital class schedule view.
 
-There are several ways of editing your application.
+### 👨‍🏫 Professor Portal
+*   **Session Management**: Create and manage live Class Sessions.
+*   **Live Monitoring**: Watch attendance updates in real-time as students check in.
+*   **Dynamic QR Generation**: Secure, time-limited QR codes for checking in.
+*   **Reports**: Export detailed attendance reports (CSV/PDF) for administrative use.
 
-**Use Lovable**
+### 🛡️ Admin Portal
+*   **User Management**: centralized control over Student and Faculty accounts.
+*   **Academic Structure**: Manage Departments, Classes, and Course mappings.
+*   **Analytics**: System-wide insights on attendance trends and anomalies.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠️ Technology Stack
 
-**Use your preferred IDE**
+**Frontend**
+*   **Framework**: [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+*   **Language**: [TypeScript](https://www.typescriptlang.org/)
+*   **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+*   **State/Query**: [TanStack Query](https://tanstack.com/query/latest)
+*   **Routing**: [React Router](https://reactrouter.com/)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+**Backend & Services**
+*   **Platform**: [Supabase](https://supabase.com/) (BaaS)
+*   **Database**: PostgreSQL
+*   **Auth**: Supabase Auth (JWT based)
+*   **Compute**: Supabase Edge Functions (Deno/TypeScript) for secure verification logic (Face/QR/GPS).
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🏗️ Architecture
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+The system uses a client-serverless architecture. Sensitive verification logic is offloaded to Edge Functions to prevent client-side spoofing.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```mermaid
+graph TD
+    subgraph Client ["Client (React App)"]
+        UI[User Interface]
+        Cam[Camera API]
+        Geo[Geolocation API]
+    end
 
-# Step 3: Install the necessary dependencies.
-npm i
+    subgraph Backend ["Supabase"]
+        Auth[Authentication]
+        DB[(PostgreSQL)]
+        Edge[Edge Functions]
+    end
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+    UI -->|1. Login| Auth
+    UI -->|2. Capture Face/Loc| Edge
+    Edge -->|3. Verify Logic| DB
+    UI -->|4. Realtime updates| DB
 ```
 
-**Edit a file directly in GitHub**
+### Navigation Flow
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```mermaid
+graph TD
+    User((User)) -->|Login| Router{Role Check}
+    Router -->|Student| S[Student Dashboard]
+    Router -->|Professor| P[Professor Dashboard]
+    Router -->|Admin| A[Admin Dashboard]
+```
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🏁 Getting Started
 
-## What technologies are used for this project?
+### Prerequisites
+*   Node.js (v16 or higher)
+*   npm or yarn
+*   A Supabase project (for backend connection)
 
-This project is built with:
+### Installation
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd AIAttend
+    ```
 
-## How can I deploy this project?
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+3.  **Environment Setup**
+    Create a `.env` file in the root directory:
+    ```env
+    VITE_SUPABASE_URL=your_supabase_project_url
+    VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+    ```
 
-## Can I connect a custom domain to my Lovable project?
+4.  **Run Development Server**
+    ```bash
+    npm run dev
+    ```
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📂 Project Structure
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```
+AIAttend/
+├── src/
+│   ├── components/       # Reusable UI components
+│   ├── contexts/         # React Contexts (Auth, etc.)
+│   ├── hooks/            # Custom React Hooks
+│   ├── integrations/     # Third-party integrations (Supabase)
+│   ├── lib/              # Utilities and Helpers
+│   ├── pages/            # Application Pages (Routed)
+│   │   ├── admin/        # Admin specific pages
+│   │   ├── auth/         # Login/Register pages
+│   │   ├── professor/    # Professor specific pages
+│   │   └── student/      # Student specific pages
+│   ├── types/            # TypeScript Type Definitions
+│   ├── App.tsx           # Main App Component & Routing
+│   └── main.tsx          # Entry Point
+└── supabase/
+    └── functions/        # Edge Functions (verify-face, verify-qr, etc.)
+```
+
+## 🔒 Security Highlights
+*   **Row Level Security (RLS)**: Database policies ensure users only access data relevant to their role.
+*   **Edge Verification**: Critical checks (Face Match, Location Distance) happen server-side.
+*   **Session Management**: JWT-based stateless authentication.
+
+---
+
+## 📄 License
+This project is for educational and administrative purposes.
