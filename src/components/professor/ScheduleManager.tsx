@@ -26,6 +26,7 @@ import { useClassSchedules, ClassSchedule } from '@/hooks/useClassSchedules';
 interface ScheduleManagerProps {
   classId: string;
   className: string;
+  onScheduleChange?: () => void;
 }
 
 const DAYS = [
@@ -37,7 +38,7 @@ const DAYS = [
   { value: 'saturday', label: 'Saturday' },
 ];
 
-export function ScheduleManager({ classId, className }: ScheduleManagerProps) {
+export function ScheduleManager({ classId, className, onScheduleChange }: ScheduleManagerProps) {
   const { schedules, isLoading, addSchedule, deleteSchedule } = useClassSchedules(classId);
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +68,7 @@ export function ScheduleManager({ classId, className }: ScheduleManagerProps) {
         end_time: newSchedule.end_time,
       });
       toast.success('Schedule added');
+      onScheduleChange?.();
       setNewSchedule({ day: '', start_time: '09:00', end_time: '10:00' });
     } catch (error) {
       console.error('Error adding schedule:', error);
@@ -80,6 +82,7 @@ export function ScheduleManager({ classId, className }: ScheduleManagerProps) {
     try {
       await deleteSchedule(scheduleId);
       toast.success('Schedule removed');
+      onScheduleChange?.();
     } catch (error) {
       console.error('Error deleting schedule:', error);
       toast.error('Failed to remove schedule');
