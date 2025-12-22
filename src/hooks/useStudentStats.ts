@@ -36,17 +36,20 @@ export function useStudentStats() {
     todayClasses: 0,
   });
   const [weeklyData, setWeeklyData] = useState<AttendanceWeekData[]>([]);
+  const [nextClass, setNextClass] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [faceRegistered, setFaceRegistered] = useState<boolean | null>(null);
   const { user } = useAuth();
 
+  const [scheduleChanges, setScheduleChanges] = useState<any[]>([]);
+
   const fetchData = async () => {
     if (!user?.id) return;
-    
+
     try {
       setIsLoading(true);
 
-      // Check face registration from secure table
+      // Check face registration from secure table (unchanged parts implied, showing changed sections)
       const { data: faceData } = await supabase
         .from('face_embeddings')
         .select('id')
@@ -76,6 +79,28 @@ export function useStudentStats() {
       }
 
       const classIds = enrollments.map((e) => e.class_id);
+
+      // Fetch schedule changes
+      const { data: changes } = await supabase
+        .from('class_schedules')
+        .select(`
+          id,
+          class_id,
+          day,
+          start_time,
+          end_time,
+          status,
+          cancel_reason,
+          classes (
+            subject,
+            code
+          )
+        `)
+        .in('class_id', classIds)
+        .in('status', ['cancelled', 'rescheduled'])
+        .order('day');
+
+      setScheduleChanges(changes || []);
 
       // Get class details
       const { data: classes, error: classError } = await supabase
@@ -145,12 +170,51 @@ export function useStudentStats() {
         todayClasses: todaySchedules?.length || 0,
       });
 
+      // Calculate Next Class
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+      // Fetch full schedule details for enrolled classes
+      const { data: fullSchedules } = await supabase
+        .from('class_schedules')
+        .select(`
+          id,
+          class_id,
+          day,
+          start_time,
+          classes (
+            id,
+            subject,
+            code,
+            room
+          )
+        `)
+        .in('class_id', classIds)
+        .eq('day', currentDay);
+
+      let upcomingClass = null;
+
+      if (fullSchedules) {
+        const sortedSchedules = fullSchedules
+          .filter(s => {
+            const [h, m] = s.start_time.split(':').map(Number);
+            return (h * 60 + m) > currentMinutes;
+          })
+          .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+        if (sortedSchedules.length > 0) {
+          upcomingClass = sortedSchedules[0];
+        }
+      }
+      setNextClass(upcomingClass);
+
       // Calculate weekly attendance data (last 6 weeks)
       const weeklyStats: AttendanceWeekData[] = [];
-      const now = new Date();
+      const calcDate = new Date();
       for (let i = 5; i >= 0; i--) {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - (i * 7 + now.getDay()));
+        const weekStart = new Date(calcDate);
+        weekStart.setDate(calcDate.getDate() - (i * 7 + calcDate.getDay()));
         weekStart.setHours(0, 0, 0, 0);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
@@ -194,5 +258,7 @@ export function useStudentStats() {
     isLoading,
     faceRegistered,
     refreshStats: fetchData,
+    nextClass,
+    scheduleChanges
   };
 }

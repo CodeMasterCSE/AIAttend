@@ -90,62 +90,62 @@ export default function ClassesPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {enrollments.map((enrollment) => (
-  <Card key={enrollment.id} className="hover:shadow-lg transition-shadow relative">
-    <CardHeader>
-      <div className="flex items-start justify-between">
-        <div>
-          <CardTitle className="text-lg">{enrollment.classes?.subject}</CardTitle>
-          <CardDescription>{enrollment.classes?.code}</CardDescription>
-        </div>
-        <Badge variant="secondary">{enrollment.classes?.semester}</Badge>
-      </div>
-    </CardHeader>
-    <CardContent className="space-y-3">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <MapPin className="h-4 w-4" />
-        <span>{enrollment.classes?.room}</span>
-      </div>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Users className="h-4 w-4" />
-        <span>{enrollment.classes?.department}</span>
-      </div>
-      <div className="pt-2 border-t flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Enrolled on {new Date(enrollment.enrolled_at).toLocaleDateString()}
-        </p>
-        {/* Unenroll option */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive ml-2" title="Unenroll">
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Unenroll from class?</DialogTitle>
-            </DialogHeader>
-            <div className="py-2">
-              <p>Are you sure you want to unenroll from <b>{enrollment.classes?.subject}</b>?</p>
-              <p className="text-xs text-muted-foreground mt-2">You will lose access to attendance for this class.</p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={e => (e.preventDefault(), document.activeElement && (document.activeElement as HTMLElement).blur())}>Cancel</Button>
-              <Button
-                variant="destructive"
-                onClick={async () => {
-                  await supabase.from('class_enrollments').delete().eq('id', enrollment.id);
-                  window.location.reload();
-                }}
-              >
-                Unenroll
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </CardContent>
-  </Card>
-))}
+              <Card key={enrollment.id} className="hover:shadow-lg transition-shadow relative">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{enrollment.classes?.subject}</CardTitle>
+                      <CardDescription>{enrollment.classes?.code}</CardDescription>
+                    </div>
+                    <Badge variant="secondary">{enrollment.classes?.semester}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{enrollment.classes?.room}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>{enrollment.classes?.department}</span>
+                  </div>
+                  <div className="pt-2 border-t flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Enrolled on {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                    </p>
+                    {/* Unenroll option */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive ml-2" title="Unenroll">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Unenroll from class?</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-2">
+                          <p>Are you sure you want to unenroll from <b>{enrollment.classes?.subject}</b>?</p>
+                          <p className="text-xs text-muted-foreground mt-2">You will lose access to attendance for this class.</p>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={e => (e.preventDefault(), document.activeElement && (document.activeElement as HTMLElement).blur())}>Cancel</Button>
+                          <Button
+                            variant="destructive"
+                            onClick={async () => {
+                              await supabase.from('class_enrollments').delete().eq('id', enrollment.id);
+                              window.location.reload();
+                            }}
+                          >
+                            Unenroll
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>

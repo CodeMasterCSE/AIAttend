@@ -15,6 +15,9 @@ import {
   ArrowRight,
   Camera,
   AlertCircle,
+  Play,
+  CalendarClock,
+  XCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -33,13 +36,55 @@ import { AttendanceChatbot } from '@/components/chatbot/AttendanceChatbot';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const { courses, stats, weeklyData, isLoading, faceRegistered, refreshStats } = useStudentStats();
+  const { courses, stats, weeklyData, isLoading, faceRegistered, refreshStats, nextClass, scheduleChanges } = useStudentStats();
 
   return (
     <DashboardLayout>
       <div className="space-y-8 animate-fade-in">
         {/* Active Sessions Banner */}
         <ActiveSessionsBanner />
+
+        {/* Schedule Changes Alert */}
+        {scheduleChanges && scheduleChanges.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6">
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-400">
+              <CalendarClock className="w-5 h-5" />
+              Schedule Changes
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {scheduleChanges.map((change: any) => (
+                <div key={change.id} className="bg-background/60 backdrop-blur-sm p-4 rounded-xl border border-border flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold  text-sm md:text-base">{change.classes?.subject}</span>
+                      <Badge variant="outline">{change.classes?.code}</Badge>
+                      <Badge variant={change.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-[10px] px-1.5 h-5">
+                        {change.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {change.day} • {change.start_time?.slice(0, 5)} - {change.end_time?.slice(0, 5)}
+                    </p>
+                    {change.cancel_reason && (
+                      <p className="text-xs mt-2 p-2 bg-muted/50 rounded-lg inline-block">
+                        Reason: {change.cancel_reason}
+                      </p>
+                    )}
+                  </div>
+                  {change.status === 'cancelled' ? (
+                    <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-full">
+                      <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-full">
+                      <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Face Registration Status Banner */}
         {faceRegistered === false && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-orange-500/30 bg-orange-500/10">
@@ -57,61 +102,106 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* Welcome Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-16 w-16 border-4 border-primary/20 shadow-glow-sm">
-                <AvatarImage src={user?.photoURL} alt={user?.name} />
-                <AvatarFallback className="gradient-bg text-primary-foreground text-xl">
-                  {user?.name?.charAt(0) || 'S'}
-                </AvatarFallback>
-              </Avatar>
-              {faceRegistered !== null && (
-                <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${faceRegistered ? 'bg-green-500' : 'bg-orange-500'}`}>
-                  {faceRegistered ? (
-                    <CheckCircle2 className="w-4 h-4 text-white" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-white" />
-                  )}
+        {/* Header / Hero */}
+        <div className="rounded-2xl gradient-bg p-6 md:p-8 text-primary-foreground relative overflow-hidden shadow-lg">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+
+          <div className="relative z-10 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner">
+                  <Play className="w-6 h-6 md:w-7 md:h-7 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <h1 className="text-xl md:text-2xl font-bold leading-tight tracking-tight">
+                      Today&apos;s Learning Overview
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="bg-white/20 border-white/30 text-xs hover:bg-white/30 transition-colors">
+                        {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </Badge>
+                      <Badge variant="outline" className="text-white/90 border-white/20 text-xs">
+                        {stats.todayClasses} Scheduled Classes
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="text-sm md:text-base text-white/85 font-medium">
+                    You have <span className="text-white font-bold">{stats.todayClasses}</span> classes scheduled for today.
+                    {stats.todayClasses > 0 ? " Ready to learn?" : " Enjoy your day off!"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="glass"
+                  size="lg"
+                  asChild
+                  className="bg-white/10 hover:bg-white/20 border-white/20 shadow-lg group transition-all duration-300 hover:scale-105"
+                >
+                  <Link to="/student/check-in">
+                    <ScanFace className="w-5 h-5 mr-2" />
+                    Quick Check-in
+                    <div className="bg-white/20 rounded-full p-1 group-hover:bg-white/30 transition-colors ml-2">
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Next Class Card */}
+            <div className="bg-white/10 rounded-xl p-4 md:p-5 border border-white/10 backdrop-blur-md">
+              {nextClass ? (
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="text-xs text-white/60 uppercase tracking-wider font-semibold mb-1">Up Next</div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-lg md:text-xl font-bold">{nextClass.classes?.subject}</span>
+                      <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 border-none">
+                        {nextClass.classes?.code}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 md:gap-8 text-sm md:text-base border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="p-1.5 rounded-lg bg-white/10">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">
+                        {new Date(`2000-01-01T${nextClass.start_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="p-1.5 rounded-lg bg-white/10">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <span>Room {nextClass.classes?.room}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-white/70">
+                    <div className="p-2 rounded-full bg-white/5">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <span>No upcoming classes for today.</span>
+                  </div>
+                  <Button
+                    variant="link"
+                    asChild
+                    className="text-white hover:text-white/80 p-0 h-auto font-medium"
+                  >
+                    <Link to="/student/timetable">
+                      View Timetable <ArrowRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </Button>
                 </div>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">Good morning, {user?.name?.split(' ')[0]}!</h1>
-                {faceRegistered && (
-                  <Badge variant="outline" className="border-green-500/50 text-green-600 dark:text-green-400">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Face Verified
-                  </Badge>
-                )}
-              </div>
-              <p className="text-muted-foreground">
-                {stats.overallAttendance >= 75
-                  ? "Your attendance is looking great!"
-                  : stats.overallAttendance > 0
-                    ? "Keep up with your attendance!"
-                    : "Ready for today's classes?"}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            {!faceRegistered && (
-              <Button variant="outline" asChild>
-                <Link to="/student/face-registration">
-                  <Camera className="w-4 h-4 mr-2" />
-                  Register Face
-                </Link>
-              </Button>
-            )}
-            <Button variant="gradient" size="lg" asChild className="group">
-              <Link to="/student/check-in">
-                <ScanFace className="w-5 h-5" />
-                Quick Check-in
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </Button>
           </div>
         </div>
 
