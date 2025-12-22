@@ -11,6 +11,7 @@ export interface AttendanceSession {
   is_active: boolean;
   attendance_window_minutes: number;
   session_duration_minutes: number;
+  closed_reason?: string | null;
   classes: {
     id: string;
     subject: string;
@@ -45,6 +46,7 @@ export function useAttendanceSessions() {
           is_active,
           attendance_window_minutes,
           session_duration_minutes,
+          closed_reason,
           classes (
             id,
             subject,
@@ -88,6 +90,7 @@ export function useAttendanceSessions() {
         is_active,
         attendance_window_minutes,
         session_duration_minutes,
+        closed_reason,
         classes (
           id,
           subject,
@@ -103,13 +106,13 @@ export function useAttendanceSessions() {
     return data as AttendanceSession;
   };
 
-  const endSession = async (sessionId: string) => {
+  const endSession = async (sessionId: string, reason: string = 'manual') => {
     const now = new Date();
     const endTime = now.toTimeString().slice(0, 8);
 
     const { error: updateError } = await supabase
       .from('attendance_sessions')
-      .update({ is_active: false, end_time: endTime })
+      .update({ is_active: false, end_time: endTime, closed_reason: reason })
       .eq('id', sessionId);
 
     if (updateError) throw updateError;
