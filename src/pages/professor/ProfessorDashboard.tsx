@@ -94,14 +94,47 @@ export default function ProfessorDashboard() {
 
   const activeSessions = sessions.filter((s) => s.is_active).length;
 
-  // Weekly attendance chart data (placeholder - would need real date-based queries)
-  const attendanceChartData = [
-    { day: 'Mon', present: 0, absent: 0 },
-    { day: 'Tue', present: 0, absent: 0 },
-    { day: 'Wed', present: 0, absent: 0 },
-    { day: 'Thu', present: 0, absent: 0 },
-    { day: 'Fri', present: 0, absent: 0 },
-  ];
+  // Weekly attendance chart data calculated from real records
+  const attendanceChartData = useMemo(() => {
+    // Only showing Mon-Fri as institution is closed on weekends
+    const data = [
+      { day: 'Mon', fullDay: 'monday', present: 0, absent: 0 },
+      { day: 'Tue', fullDay: 'tuesday', present: 0, absent: 0 },
+      { day: 'Wed', fullDay: 'wednesday', present: 0, absent: 0 },
+      { day: 'Thu', fullDay: 'thursday', present: 0, absent: 0 },
+      { day: 'Fri', fullDay: 'friday', present: 0, absent: 0 },
+    ];
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    records.forEach(record => {
+      const recordDate = new Date(record.timestamp);
+      if (recordDate >= startOfWeek && recordDate <= endOfWeek) {
+        const dayIndex = recordDate.getDay(); // 0 = Sunday, 1 = Monday...
+
+        // Only process weekdays (Mon=1 to Fri=5)
+        if (dayIndex >= 1 && dayIndex <= 5) {
+          const arrayIndex = dayIndex - 1; // Map 1->0, 2->1, etc.
+          if (data[arrayIndex]) {
+            if (record.status === 'present') {
+              data[arrayIndex].present += 1;
+            } else {
+              data[arrayIndex].absent += 1;
+            }
+          }
+        }
+      }
+    });
+
+    return data;
+  }, [records]);
 
   return (
     <DashboardLayout>

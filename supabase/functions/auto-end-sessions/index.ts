@@ -58,8 +58,8 @@ Deno.serve(async (req) => {
       // Close expired sessions
       const { error: updateError } = await supabase
         .from('attendance_sessions')
-        .update({ 
-          is_active: false, 
+        .update({
+          is_active: false,
           end_time: currentTime,
           closed_reason: 'time_expired'
         })
@@ -131,11 +131,11 @@ Deno.serve(async (req) => {
     console.log(`[auto-end-sessions] Completed in ${duration}ms`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         closedSessions: sessionsToClose.length,
         totalActive: activeSessions?.length || 0,
-        duration 
+        duration
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

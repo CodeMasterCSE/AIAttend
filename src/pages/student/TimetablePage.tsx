@@ -109,19 +109,77 @@ export default function TimetablePage() {
     };
   }, [user, enrolledClassIds, fetchStudentSchedules]);
 
-  // Filter cancelled and rescheduled classes
-  const cancelledClasses = useMemo(() => {
-    return schedules.filter(s => s.status === 'cancelled');
+  // Filter for active (non-cancelled) sessions for workload calculations
+  const [processedSchedules, setProcessedSchedules] = useState<ClassSchedule[]>([]);
+
+  useEffect(() => {
+    const now = new Date();
+    // Get start of current week (Sunday)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Get end of current week (Saturday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const isWithinCurrentWeek = (dateString: string | null | undefined) => {
+      if (!dateString) return false;
+      const date = new Date(dateString);
+      return date >= startOfWeek && date <= endOfWeek;
+    };
+
+    // First pass: identify "stale" modifications (modifications from previous weeks)
+    // and find the IDs of temporary slots that should be ignored
+    const staleScheduleIds = new Set<string>();
+    const idsToIgnore = new Set<string>();
+
+    schedules.forEach(s => {
+      if (s.status === 'cancelled' || s.status === 'rescheduled') {
+        if (!isWithinCurrentWeek(s.cancelled_at)) {
+          staleScheduleIds.add(s.id);
+          // If it was a stale reschedule, we must ignore the corresponding "new" slot
+          if (s.status === 'rescheduled' && s.rescheduled_to_id) {
+            idsToIgnore.add(s.rescheduled_to_id);
+          }
+        }
+      }
+    });
+
+    // Second pass: build the final list of schedules to display
+    const processed = schedules
+      .filter(s => !idsToIgnore.has(s.id)) // Remove stale temporary slots
+      .map(s => {
+        if (staleScheduleIds.has(s.id)) {
+          // Revert stale changes to 'scheduled'
+          return {
+            ...s,
+            status: 'scheduled' as const,
+            cancelled_at: null,
+            cancel_reason: null,
+            rescheduled_to_id: null
+          };
+        }
+        return s;
+      });
+
+    setProcessedSchedules(processed);
   }, [schedules]);
 
+  // Filter cancelled and rescheduled classes
+  const cancelledClasses = useMemo(() => {
+    return processedSchedules.filter(s => s.status === 'cancelled');
+  }, [processedSchedules]);
+
   const rescheduledClasses = useMemo(() => {
-    return schedules.filter(s => s.status === 'rescheduled');
-  }, [schedules]);
+    return processedSchedules.filter(s => s.status === 'rescheduled');
+  }, [processedSchedules]);
 
   // Get rescheduled-to schedule info
   const getRescheduledToInfo = (rescheduledToId: string | null | undefined) => {
     if (!rescheduledToId) return null;
-    return schedules.find(s => s.id === rescheduledToId);
+    return processedSchedules.find(s => s.id === rescheduledToId);
   };
 
   const formatTime = (time: string) => {
@@ -147,7 +205,7 @@ export default function TimetablePage() {
             <h1 className="text-2xl font-bold">My Timetable</h1>
             <p className="text-muted-foreground">Your weekly class schedule</p>
           </div>
-          <GoogleCalendarSync schedules={schedules} />
+          <GoogleCalendarSync schedules={processedSchedules} />
         </div>
 
         {/* Cancelled & Rescheduled Classes Alert */}
@@ -243,7 +301,7 @@ export default function TimetablePage() {
         )}
 
         {/* Weekly Timetable */}
-        <WeeklyTimetable schedules={schedules} isLoading={isLoading} />
+        <WeeklyTimetable schedules={processedSchedules} isLoading={isLoading} />
       </div>
     </DashboardLayout>
   );

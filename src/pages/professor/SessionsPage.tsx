@@ -26,7 +26,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { BulkAttendanceMarking } from '@/components/professor/BulkAttendanceMarking';
-import { ScheduledSessionStarter } from '@/components/professor/ScheduledSessionStarter';
+
 import { SessionTimer } from '@/components/professor/SessionTimer';
 import { ManualAttendanceEditor } from '@/components/professor/ManualAttendanceEditor';
 import { SessionConfigDialog } from '@/components/professor/SessionConfigDialog';
@@ -210,8 +210,7 @@ export default function QRSessionsPage() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        {/* Scheduled Sessions Quick Start */}
-        <ScheduledSessionStarter onSessionStarted={refreshSessions} />
+
 
         {/* Header */}
         <div className="text-center">
