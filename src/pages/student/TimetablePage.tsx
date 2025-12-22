@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WeeklyTimetable } from '@/components/student/WeeklyTimetable';
 import { GoogleCalendarSync } from '@/components/calendar/GoogleCalendarSync';
@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Clock, MapPin, BookOpen } from 'lucide-react';
+import { Calendar, Clock, MapPin, BookOpen, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ClassSchedule } from '@/hooks/useClassSchedules';
+import { ScheduleStatusBadge } from '@/components/common/ScheduleStatusBadge';
+import { format } from 'date-fns';
 
 export default function TimetablePage() {
   const { user } = useAuth();
@@ -38,7 +40,7 @@ export default function TimetablePage() {
       const classIds = enrollments.map(e => e.class_id);
       setEnrolledClassIds(classIds);
 
-      // Get schedules for enrolled classes
+      // Get schedules for enrolled classes with status fields
       const { data: scheduleData, error: scheduleError } = await supabase
         .from('class_schedules')
         .select(`
@@ -47,6 +49,11 @@ export default function TimetablePage() {
           day,
           start_time,
           end_time,
+          status,
+          cancelled_at,
+          cancel_reason,
+          rescheduled_to_id,
+          original_schedule_id,
           classes (
             id,
             subject,
@@ -62,11 +69,11 @@ export default function TimetablePage() {
 
       setSchedules(scheduleData as ClassSchedule[] || []);
 
-      // Get today's classes
+      // Get today's scheduled classes (not cancelled)
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       const today = days[new Date().getDay()];
       const todaysSchedules = (scheduleData as ClassSchedule[] || []).filter(
-        s => s.day.toLowerCase() === today
+        s => s.day.toLowerCase() === today && s.status === 'scheduled'
       );
       setTodayClasses(todaysSchedules);
     } catch (error) {
@@ -98,9 +105,9 @@ export default function TimetablePage() {
           
           // Only react to changes for enrolled classes
           if (record && enrolledClassIds.includes(record.class_id)) {
-            fetchStudentSchedules(); // Refetch to get full data with joins
+            fetchStudentSchedules();
           } else if (payload.eventType === 'DELETE') {
-            fetchStudentSchedules(); // Refetch on delete
+            fetchStudentSchedules();
           }
         }
       )
@@ -111,6 +118,21 @@ export default function TimetablePage() {
     };
   }, [user, enrolledClassIds, fetchStudentSchedules]);
 
+  // Filter cancelled and rescheduled classes
+  const cancelledClasses = useMemo(() => {
+    return schedules.filter(s => s.status === 'cancelled');
+  }, [schedules]);
+
+  const rescheduledClasses = useMemo(() => {
+    return schedules.filter(s => s.status === 'rescheduled');
+  }, [schedules]);
+
+  // Get rescheduled-to schedule info
+  const getRescheduledToInfo = (rescheduledToId: string | null | undefined) => {
+    if (!rescheduledToId) return null;
+    return schedules.find(s => s.id === rescheduledToId);
+  };
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
     const h = parseInt(hours);
@@ -118,6 +140,12 @@ export default function TimetablePage() {
     const hour12 = h % 12 || 12;
     return `${hour12}:${minutes} ${ampm}`;
   };
+
+  const formatDay = (day: string) => {
+    return day.charAt(0).toUpperCase() + day.slice(1);
+  };
+
+  const hasCancelledOrRescheduled = cancelledClasses.length > 0 || rescheduledClasses.length > 0;
 
   return (
     <DashboardLayout>
@@ -130,6 +158,98 @@ export default function TimetablePage() {
           </div>
           <GoogleCalendarSync schedules={schedules} />
         </div>
+
+        {/* Cancelled & Rescheduled Classes Alert */}
+        {hasCancelledOrRescheduled && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-5 h-5" />
+                Schedule Changes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Cancelled Classes */}
+              {cancelledClasses.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-medium flex items-center gap-2 text-destructive">
+                    <XCircle className="w-4 h-4" />
+                    Cancelled Classes ({cancelledClasses.length})
+                  </h4>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {cancelledClasses.map(schedule => (
+                      <div
+                        key={schedule.id}
+                        className="p-3 rounded-lg border border-destructive/20 bg-destructive/5"
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <Badge variant="outline" className="text-xs">{schedule.classes?.code}</Badge>
+                          <ScheduleStatusBadge status={schedule.status} />
+                        </div>
+                        <p className="font-medium text-sm">{schedule.classes?.subject}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDay(schedule.day)} • {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                        </p>
+                        {schedule.cancel_reason && (
+                          <p className="text-xs mt-2 p-2 rounded bg-muted/50">
+                            <span className="font-medium">Reason:</span> {schedule.cancel_reason}
+                          </p>
+                        )}
+                        {schedule.cancelled_at && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Cancelled on {format(new Date(schedule.cancelled_at), 'MMM d, yyyy h:mm a')}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rescheduled Classes */}
+              {rescheduledClasses.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-medium flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <RefreshCw className="w-4 h-4" />
+                    Rescheduled Classes ({rescheduledClasses.length})
+                  </h4>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {rescheduledClasses.map(schedule => {
+                      const newSchedule = getRescheduledToInfo(schedule.rescheduled_to_id);
+                      return (
+                        <div
+                          key={schedule.id}
+                          className="p-3 rounded-lg border border-blue-500/20 bg-blue-500/5"
+                        >
+                          <div className="flex items-start justify-between mb-1">
+                            <Badge variant="outline" className="text-xs">{schedule.classes?.code}</Badge>
+                            <ScheduleStatusBadge status={schedule.status} />
+                          </div>
+                          <p className="font-medium text-sm">{schedule.classes?.subject}</p>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-muted-foreground line-through">
+                              Original: {formatDay(schedule.day)} • {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                            </p>
+                            {newSchedule && (
+                              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                New: {formatDay(newSchedule.day)} • {formatTime(newSchedule.start_time)} - {formatTime(newSchedule.end_time)}
+                              </p>
+                            )}
+                          </div>
+                          {schedule.cancel_reason && (
+                            <p className="text-xs mt-2 p-2 rounded bg-muted/50">
+                              <span className="font-medium">Reason:</span> {schedule.cancel_reason}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Today's Classes */}
         <Card>
