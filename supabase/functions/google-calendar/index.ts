@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as encodeBase64, decode as decodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 const GOOGLE_CLIENT_ID_RAW = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
 const GOOGLE_CLIENT_SECRET_RAW = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+const TOKEN_ENCRYPTION_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY') ?? '';
 
 // Trim to avoid invisible whitespace/newline issues (very common when copy/pasting secrets)
 const GOOGLE_CLIENT_ID = GOOGLE_CLIENT_ID_RAW.trim();
@@ -20,6 +22,70 @@ function maskId(id: string, visible = 6) {
   if (!id) return '(empty)';
   if (id.length <= visible * 2) return `${id.slice(0, 2)}…${id.slice(-2)}`;
   return `${id.slice(0, visible)}…${id.slice(-visible)}`;
+}
+
+// Encryption utilities using Web Crypto API
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(TOKEN_ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32)),
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  return keyMaterial;
+}
+
+async function encryptToken(token: string): Promise<string> {
+  if (!TOKEN_ENCRYPTION_KEY) {
+    console.warn('TOKEN_ENCRYPTION_KEY not set, storing token without encryption');
+    return token;
+  }
+  
+  const encoder = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await getEncryptionKey();
+  
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(token)
+  );
+  
+  // Combine IV and encrypted data, then encode as base64
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return 'enc:' + encodeBase64(combined.buffer);
+}
+
+async function decryptToken(encryptedToken: string): Promise<string> {
+  // Check if token is encrypted (has enc: prefix)
+  if (!encryptedToken.startsWith('enc:')) {
+    // Legacy unencrypted token - return as-is
+    return encryptedToken;
+  }
+  
+  if (!TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY not set, cannot decrypt token');
+  }
+  
+  const combined = decodeBase64(encryptedToken.slice(4)); // Remove 'enc:' prefix
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  
+  const key = await getEncryptionKey();
+  
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encrypted
+  );
+  
+  const decoder = new TextDecoder();
+  return decoder.decode(decrypted);
 }
 
 interface Schedule {
@@ -121,13 +187,17 @@ serve(async (req) => {
 
       const tokenExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
 
-      // Upsert tokens
+      // Encrypt tokens before storing
+      const encryptedAccessToken = await encryptToken(tokenData.access_token);
+      const encryptedRefreshToken = await encryptToken(tokenData.refresh_token);
+
+      // Upsert tokens (encrypted)
       const { error: upsertError } = await supabaseAdmin
         .from('calendar_tokens')
         .upsert({
           user_id: user.id,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
           token_expiry: tokenExpiry.toISOString(),
         }, { onConflict: 'user_id' });
 
@@ -135,6 +205,8 @@ serve(async (req) => {
         console.error('Failed to store tokens:', upsertError);
         throw new Error('Failed to store tokens');
       }
+
+      console.log('Tokens stored successfully (encrypted)');
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -175,8 +247,11 @@ serve(async (req) => {
         throw new Error('Calendar not connected');
       }
 
+      // Decrypt tokens
+      let accessToken = await decryptToken(tokens.access_token);
+      const refreshToken = await decryptToken(tokens.refresh_token);
+
       // Refresh token if expired
-      let accessToken = tokens.access_token;
       if (new Date(tokens.token_expiry) < new Date()) {
         console.log('Refreshing expired token');
         const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -185,7 +260,7 @@ serve(async (req) => {
           body: new URLSearchParams({
             client_id: GOOGLE_CLIENT_ID!,
             client_secret: GOOGLE_CLIENT_SECRET!,
-            refresh_token: tokens.refresh_token,
+            refresh_token: refreshToken,
             grant_type: 'refresh_token',
           }),
         });
@@ -199,10 +274,13 @@ serve(async (req) => {
         accessToken = refreshData.access_token;
         const newExpiry = new Date(Date.now() + refreshData.expires_in * 1000);
 
+        // Encrypt new access token before storing
+        const encryptedNewAccessToken = await encryptToken(accessToken);
+
         await supabaseAdmin
           .from('calendar_tokens')
           .update({
-            access_token: accessToken,
+            access_token: encryptedNewAccessToken,
             token_expiry: newExpiry.toISOString(),
           })
           .eq('user_id', user.id);
