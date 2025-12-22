@@ -45,46 +45,7 @@ export default function StudentDashboard() {
         <ActiveSessionsBanner />
 
         {/* Schedule Changes Alert */}
-        {scheduleChanges && scheduleChanges.length > 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6">
-            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-400">
-              <CalendarClock className="w-5 h-5" />
-              Schedule Changes
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              {scheduleChanges.map((change: any) => (
-                <div key={change.id} className="bg-background/60 backdrop-blur-sm p-4 rounded-xl border border-border flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold  text-sm md:text-base">{change.classes?.subject}</span>
-                      <Badge variant="outline">{change.classes?.code}</Badge>
-                      <Badge variant={change.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-[10px] px-1.5 h-5">
-                        {change.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {change.day} • {change.start_time?.slice(0, 5)} - {change.end_time?.slice(0, 5)}
-                    </p>
-                    {change.cancel_reason && (
-                      <p className="text-xs mt-2 p-2 bg-muted/50 rounded-lg inline-block">
-                        Reason: {change.cancel_reason}
-                      </p>
-                    )}
-                  </div>
-                  {change.status === 'cancelled' ? (
-                    <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-full">
-                      <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                    </div>
-                  ) : (
-                    <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-full">
-                      <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
         {/* Face Registration Status Banner */}
         {faceRegistered === false && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-orange-500/30 bg-orange-500/10">
@@ -205,6 +166,48 @@ export default function StudentDashboard() {
           </div>
         </div>
 
+        {/* Schedule Changes Alert */}
+        {scheduleChanges && scheduleChanges.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6">
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-400">
+              <CalendarClock className="w-5 h-5" />
+              Schedule Changes
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {scheduleChanges.map((change: any) => (
+                <div key={change.id} className="bg-background/60 backdrop-blur-sm p-4 rounded-xl border border-border flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold  text-sm md:text-base">{change.classes?.subject}</span>
+                      <Badge variant="outline">{change.classes?.code}</Badge>
+                      <Badge variant={change.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-[10px] px-1.5 h-5">
+                        {change.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {change.day} • {change.start_time?.slice(0, 5)} - {change.end_time?.slice(0, 5)}
+                    </p>
+                    {change.cancel_reason && (
+                      <p className="text-xs mt-2 p-2 bg-muted/50 rounded-lg inline-block">
+                        Reason: {change.cancel_reason}
+                      </p>
+                    )}
+                  </div>
+                  {change.status === 'cancelled' ? (
+                    <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-full">
+                      <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-full">
+                      <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
@@ -252,59 +255,7 @@ export default function StudentDashboard() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Enrolled Courses & Attendance Chart */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Enrolled Courses */}
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="font-semibold text-lg">Enrolled Courses</h3>
-                  <p className="text-sm text-muted-foreground">Your course attendance breakdown</p>
-                </div>
-                <JoinClassCard onJoined={refreshStats} />
-              </div>
 
-              {isLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-16 rounded-xl" />
-                  <Skeleton className="h-16 rounded-xl" />
-                  <Skeleton className="h-16 rounded-xl" />
-                </div>
-              ) : courses.length > 0 ? (
-                <div className="space-y-4">
-                  {courses.map((course) => (
-                    <div key={course.id} className="p-4 rounded-xl border border-border bg-background/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{course.subject}</h4>
-                          <p className="text-sm text-muted-foreground">{course.code} • {course.room}</p>
-                        </div>
-                        <Badge
-                          variant={course.attendancePercentage >= 75 ? "default" : "destructive"}
-                          className={course.attendancePercentage >= 75 ? "bg-green-500/10 text-green-600 border-green-500/30" : ""}
-                        >
-                          {course.attendancePercentage}%
-                        </Badge>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{course.attendedSessions} of {course.totalSessions} sessions attended</span>
-                          <span>{course.attendancePercentage >= 75 ? "Good standing" : "Needs attention"}</span>
-                        </div>
-                        <Progress
-                          value={course.attendancePercentage}
-                          className="h-2"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>You're not enrolled in any courses yet</p>
-                  <p className="text-sm mt-1">Contact your professor to get enrolled</p>
-                </div>
-              )}
-            </div>
 
             {/* Attendance Chart */}
             <div className="rounded-2xl border border-border bg-card p-6">
