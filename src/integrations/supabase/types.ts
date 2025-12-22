@@ -126,6 +126,7 @@ export type Database = {
         Row: {
           attendance_window_minutes: number
           class_id: string
+          closed_reason: string | null
           created_at: string
           date: string
           end_time: string | null
@@ -138,6 +139,7 @@ export type Database = {
         Insert: {
           attendance_window_minutes?: number
           class_id: string
+          closed_reason?: string | null
           created_at?: string
           date?: string
           end_time?: string | null
@@ -150,6 +152,7 @@ export type Database = {
         Update: {
           attendance_window_minutes?: number
           class_id?: string
+          closed_reason?: string | null
           created_at?: string
           date?: string
           end_time?: string | null
@@ -262,28 +265,43 @@ export type Database = {
       }
       class_schedules: {
         Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
           class_id: string
           created_at: string
           day: string
           end_time: string
           id: string
+          original_schedule_id: string | null
+          rescheduled_to_id: string | null
           start_time: string
+          status: string
         }
         Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           class_id: string
           created_at?: string
           day: string
           end_time: string
           id?: string
+          original_schedule_id?: string | null
+          rescheduled_to_id?: string | null
           start_time: string
+          status?: string
         }
         Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           class_id?: string
           created_at?: string
           day?: string
           end_time?: string
           id?: string
+          original_schedule_id?: string | null
+          rescheduled_to_id?: string | null
           start_time?: string
+          status?: string
         }
         Relationships: [
           {
@@ -291,6 +309,20 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_original_schedule_id_fkey"
+            columns: ["original_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_rescheduled_to_id_fkey"
+            columns: ["rescheduled_to_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
             referencedColumns: ["id"]
           },
         ]

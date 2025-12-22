@@ -8,6 +8,11 @@ export interface ProfessorSchedule {
   day: string;
   start_time: string;
   end_time: string;
+  status: 'scheduled' | 'cancelled' | 'rescheduled';
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  rescheduled_to_id?: string | null;
+  original_schedule_id?: string | null;
   classes: {
     id: string;
     subject: string;
@@ -56,6 +61,11 @@ export function useProfessorSchedules() {
           day,
           start_time,
           end_time,
+          status,
+          cancelled_at,
+          cancel_reason,
+          rescheduled_to_id,
+          original_schedule_id,
           classes (
             id,
             subject,

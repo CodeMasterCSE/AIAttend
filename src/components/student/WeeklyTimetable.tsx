@@ -2,12 +2,29 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Calendar, Clock, MapPin } from 'lucide-react';
-import { ClassSchedule } from '@/hooks/useClassSchedules';
+import { Calendar, Clock, MapPin, XCircle, CalendarClock } from 'lucide-react';
+import { ScheduleStatusBadge } from '@/components/common/ScheduleStatusBadge';
+
+interface ScheduleItem {
+  id: string;
+  class_id: string;
+  day: string;
+  start_time: string;
+  end_time: string;
+  status?: 'scheduled' | 'cancelled' | 'rescheduled';
+  classes?: {
+    id?: string;
+    subject: string;
+    code: string;
+    room: string;
+    department?: string;
+  };
+}
 
 interface WeeklyTimetableProps {
-  schedules: ClassSchedule[];
+  schedules: ScheduleItem[];
   isLoading?: boolean;
+  showCancelledSchedules?: boolean;
 }
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -32,23 +49,29 @@ const COLORS = [
   'bg-destructive/20 border-destructive/40 text-destructive',
 ];
 
-export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) {
+export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules = false }: WeeklyTimetableProps) {
+  // Filter schedules based on status
+  const activeSchedules = useMemo(() => {
+    if (showCancelledSchedules) return schedules;
+    return schedules.filter(s => !s.status || s.status === 'scheduled');
+  }, [schedules, showCancelledSchedules]);
+
   const schedulesByDay = useMemo(() => {
-    const grouped: Record<string, ClassSchedule[]> = {};
+    const grouped: Record<string, ScheduleItem[]> = {};
     DAYS.forEach(day => {
-      grouped[day] = schedules.filter(s => s.day.toLowerCase() === day);
+      grouped[day] = activeSchedules.filter(s => s.day.toLowerCase() === day);
     });
     return grouped;
-  }, [schedules]);
+  }, [activeSchedules]);
 
   const classColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    const uniqueClasses = [...new Set(schedules.map(s => s.class_id))];
+    const uniqueClasses = [...new Set(activeSchedules.map(s => s.class_id))];
     uniqueClasses.forEach((classId, index) => {
       map[classId] = COLORS[index % COLORS.length];
     });
     return map;
-  }, [schedules]);
+  }, [activeSchedules]);
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
@@ -164,6 +187,8 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
                       if (startingSchedule) {
                         const duration = getMinutes(startingSchedule.end_time) - getMinutes(startingSchedule.start_time);
                         const span = Math.max(1, Math.ceil(duration / 50));
+                        const isCancelled = startingSchedule.status === 'cancelled';
+                        const isRescheduled = startingSchedule.status === 'rescheduled';
 
                         // Just render the single schedule card for this slot
                         cells.push(
@@ -174,16 +199,32 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
                           >
                             <div
                               key={startingSchedule.id}
-                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${classColorMap[startingSchedule.class_id]
-                                }`}
+                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${
+                                isCancelled 
+                                  ? 'bg-destructive/10 border-destructive/30 text-destructive opacity-60' 
+                                  : isRescheduled
+                                    ? 'bg-orange-500/10 border-orange-500/30 text-orange-600 opacity-60'
+                                    : classColorMap[startingSchedule.class_id]
+                              }`}
                             >
                               <div>
-                                <div className="font-semibold truncate leading-tight">
-                                  {startingSchedule.classes?.code}
+                                <div className="font-semibold truncate leading-tight flex items-center gap-1">
+                                  {isCancelled && <XCircle className="w-3 h-3" />}
+                                  {isRescheduled && <CalendarClock className="w-3 h-3" />}
+                                  <span className={isCancelled || isRescheduled ? 'line-through' : ''}>
+                                    {startingSchedule.classes?.code}
+                                  </span>
                                 </div>
-                                <div className="text-[10px] opacity-80 truncate leading-tight">
+                                <div className={`text-[10px] opacity-80 truncate leading-tight ${isCancelled || isRescheduled ? 'line-through' : ''}`}>
                                   {startingSchedule.classes?.subject}
                                 </div>
+                                {(isCancelled || isRescheduled) && (
+                                  <ScheduleStatusBadge 
+                                    status={startingSchedule.status!} 
+                                    showIcon={false} 
+                                    className="mt-1 text-[9px] px-1 py-0"
+                                  />
+                                )}
                               </div>
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-1 text-[10px] opacity-70">
@@ -218,7 +259,7 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
 
-        {schedules.length === 0 && (
+        {activeSchedules.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>No classes scheduled</p>
