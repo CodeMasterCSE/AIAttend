@@ -65,6 +65,35 @@ serve(async (req) => {
             );
         }
 
+        // Password validation - defense in depth (only if password is provided)
+        if (password !== undefined && password !== null && password !== '') {
+            if (typeof password !== 'string' || password.length < 8) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "Password must be at least 8 characters" }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+
+            if (password.length > 128) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "Password must be less than 128 characters" }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+
+            // Check for at least one uppercase, one lowercase, and one number
+            const hasUppercase = /[A-Z]/.test(password);
+            const hasLowercase = /[a-z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+
+            if (!hasUppercase || !hasLowercase || !hasNumber) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "Password must contain uppercase, lowercase, and a number" }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+        }
+
         const updates: any = {};
         const userMetadataUpdates: any = {};
 
