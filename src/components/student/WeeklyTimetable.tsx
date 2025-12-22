@@ -123,14 +123,14 @@ export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules =
         <ScrollArea className="w-full">
           <div className="min-w-[1000px] pb-4">
             {/* Header */}
-            <div className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 mb-4">
+            <div className="grid gap-2 mb-4" style={{ gridTemplateColumns: '80px repeat(10, minmax(0, 1fr))' }}>
               <div className="flex items-center justify-center text-xs font-medium text-muted-foreground p-2 bg-muted/5 rounded-lg">
                 Day / Time
               </div>
               {TIME_SLOTS.map(timeSlot => (
                 <div
                   key={timeSlot}
-                  className="text-center p-2 rounded-lg text-xs font-medium text-muted-foreground bg-muted/50 flex items-center justify-center"
+                  className="text-center p-2 rounded-lg text-xs font-medium text-muted-foreground bg-muted/50 flex items-center justify-center min-w-0"
                 >
                   {formatTime(timeSlot)}
                 </div>
@@ -140,7 +140,7 @@ export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules =
             {/* Time Grid */}
             <div className="space-y-2">
               {DAYS.map(day => (
-                <div key={day} className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 min-h-[100px]">
+                <div key={day} className="grid gap-2 min-h-[100px]" style={{ gridTemplateColumns: '80px repeat(10, minmax(0, 1fr))' }}>
                   {/* Day Label */}
                   <div
                     className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium ${currentDay === day
@@ -195,11 +195,11 @@ export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules =
                           <div
                             key={`${day}-${timeSlot}`}
                             style={{ gridColumn: `span ${span}` }}
-                            className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1"
+                            className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1 min-w-0 overflow-hidden"
                           >
                             <div
                               key={startingSchedule.id}
-                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${
+                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity overflow-hidden ${
                                 isCancelled 
                                   ? 'bg-destructive/10 border-destructive/30 text-destructive opacity-60' 
                                   : isRescheduled
@@ -207,11 +207,11 @@ export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules =
                                     : classColorMap[startingSchedule.class_id]
                               }`}
                             >
-                              <div>
+                              <div className="min-w-0 overflow-hidden">
                                 <div className="font-semibold truncate leading-tight flex items-center gap-1">
-                                  {isCancelled && <XCircle className="w-3 h-3" />}
-                                  {isRescheduled && <CalendarClock className="w-3 h-3" />}
-                                  <span className={isCancelled || isRescheduled ? 'line-through' : ''}>
+                                  {isCancelled && <XCircle className="w-3 h-3 flex-shrink-0" />}
+                                  {isRescheduled && <CalendarClock className="w-3 h-3 flex-shrink-0" />}
+                                  <span className={`truncate ${isCancelled || isRescheduled ? 'line-through' : ''}`}>
                                     {startingSchedule.classes?.code}
                                   </span>
                                 </div>
@@ -226,15 +226,15 @@ export function WeeklyTimetable({ schedules, isLoading, showCancelledSchedules =
                                   />
                                 )}
                               </div>
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-1 text-[10px] opacity-70">
-                                  <Clock className="w-3 h-3" />
-                                  {formatTime(startingSchedule.start_time)} - {formatTime(startingSchedule.end_time)}
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-1 text-[10px] opacity-70 truncate">
+                                  <Clock className="w-3 h-3 flex-shrink-0" />
+                                  <span className="truncate">{formatTime(startingSchedule.start_time)} - {formatTime(startingSchedule.end_time)}</span>
                                 </div>
                                 {startingSchedule.classes?.room && (
-                                  <div className="flex items-center gap-1 text-[10px] opacity-70">
-                                    <MapPin className="w-3 h-3" />
-                                    {startingSchedule.classes.room}
+                                  <div className="flex items-center gap-1 text-[10px] opacity-70 truncate">
+                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{startingSchedule.classes.room}</span>
                                   </div>
                                 )}
                               </div>
