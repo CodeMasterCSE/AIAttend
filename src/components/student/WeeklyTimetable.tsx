@@ -1,5 +1,6 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Calendar, Clock, MapPin } from 'lucide-react';
 import { ClassSchedule } from '@/hooks/useClassSchedules';
@@ -9,15 +10,19 @@ interface WeeklyTimetableProps {
   isLoading?: boolean;
 }
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const DAY_LABELS: Record<string, string> = {
   monday: 'Mon',
   tuesday: 'Tue',
   wednesday: 'Wed',
   thursday: 'Thu',
   friday: 'Fri',
-  saturday: 'Sat',
 };
+
+const TIME_SLOTS = [
+  '10:00', '10:50', '11:40', '12:30',
+  '13:00', '13:50', '14:40', '15:30', '16:20', '17:10'
+];
 
 const COLORS = [
   'bg-primary/20 border-primary/40 text-primary',
@@ -28,10 +33,22 @@ const COLORS = [
 ];
 
 export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) {
-  const getMinutes = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
-  };
+  const schedulesByDay = useMemo(() => {
+    const grouped: Record<string, ClassSchedule[]> = {};
+    DAYS.forEach(day => {
+      grouped[day] = schedules.filter(s => s.day.toLowerCase() === day);
+    });
+    return grouped;
+  }, [schedules]);
+
+  const classColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const uniqueClasses = [...new Set(schedules.map(s => s.class_id))];
+    uniqueClasses.forEach((classId, index) => {
+      map[classId] = COLORS[index % COLORS.length];
+    });
+    return map;
+  }, [schedules]);
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
@@ -41,48 +58,10 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const timeSlots = useMemo(() => {
-    // Default academic window, but expand if schedules fall outside.
-    const DEFAULT_START = 8 * 60; // 08:00
-    const DEFAULT_END = 18 * 60; // 18:00
-    const STEP = 30; // minutes
-
-    const scheduleStarts = schedules.map((s) => getMinutes(s.start_time));
-    const scheduleEnds = schedules.map((s) => getMinutes(s.end_time));
-
-    const minStart = scheduleStarts.length ? Math.min(...scheduleStarts) : DEFAULT_START;
-    const maxEnd = scheduleEnds.length ? Math.max(...scheduleEnds) : DEFAULT_END;
-
-    const start = Math.max(6 * 60, Math.floor(Math.min(DEFAULT_START, minStart) / STEP) * STEP);
-    const end = Math.min(22 * 60, Math.ceil(Math.max(DEFAULT_END, maxEnd) / STEP) * STEP);
-
-    const slots: string[] = [];
-    for (let mins = start; mins < end; mins += STEP) {
-      const h = String(Math.floor(mins / 60)).padStart(2, '0');
-      const m = String(mins % 60).padStart(2, '0');
-      slots.push(`${h}:${m}`);
-    }
-    return slots;
-  }, [schedules]);
-
-  const schedulesByDay = useMemo(() => {
-    const grouped: Record<string, ClassSchedule[]> = {};
-    DAYS.forEach((day) => {
-      grouped[day] = schedules
-        .filter((s) => (s.day || '').toLowerCase() === day)
-        .sort((a, b) => getMinutes(a.start_time) - getMinutes(b.start_time));
-    });
-    return grouped;
-  }, [schedules]);
-
-  const classColorMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    const uniqueClasses = [...new Set(schedules.map((s) => s.class_id))];
-    uniqueClasses.forEach((classId, index) => {
-      map[classId] = COLORS[index % COLORS.length];
-    });
-    return map;
-  }, [schedules]);
+  const getMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
 
   const getCurrentDay = () => {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -109,10 +88,6 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
     );
   }
 
-  const gridColumnsStyle: React.CSSProperties = {
-    gridTemplateColumns: `100px repeat(${timeSlots.length}, minmax(0, 1fr))`,
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -125,11 +100,11 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
         <ScrollArea className="w-full">
           <div className="min-w-[1000px] pb-4">
             {/* Header */}
-            <div className="grid gap-2 mb-4" style={gridColumnsStyle}>
+            <div className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 mb-4">
               <div className="flex items-center justify-center text-xs font-medium text-muted-foreground p-2 bg-muted/5 rounded-lg">
                 Day / Time
               </div>
-              {timeSlots.map((timeSlot) => (
+              {TIME_SLOTS.map(timeSlot => (
                 <div
                   key={timeSlot}
                   className="text-center p-2 rounded-lg text-xs font-medium text-muted-foreground bg-muted/50 flex items-center justify-center"
@@ -141,13 +116,14 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
 
             {/* Time Grid */}
             <div className="space-y-2">
-              {DAYS.map((day) => (
-                <div key={day} className="grid gap-2 min-h-[100px]" style={gridColumnsStyle}>
+              {DAYS.map(day => (
+                <div key={day} className="grid grid-cols-[100px_repeat(10,1fr)] gap-2 min-h-[100px]">
                   {/* Day Label */}
                   <div
-                    className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium ${
-                      currentDay === day ? 'bg-primary text-primary-foreground' : 'bg-muted/50'
-                    }`}
+                    className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium ${currentDay === day
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/50'
+                      }`}
                   >
                     {DAY_LABELS[day]}
                   </div>
@@ -157,39 +133,39 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
                     const cells = [];
                     let skipCount = 0;
 
-                    for (let i = 0; i < timeSlots.length; i++) {
+                    for (let i = 0; i < TIME_SLOTS.length; i++) {
                       if (skipCount > 0) {
                         skipCount--;
                         continue;
                       }
 
-                      const timeSlot = timeSlots[i];
+                      const timeSlot = TIME_SLOTS[i];
 
-                      // Optional lunch break marker
+                      // Handle Break Slot
                       if (timeSlot === '12:30') {
                         cells.push(
-                          <div
-                            key={`${day}-${timeSlot}`}
-                            className="flex items-center justify-center rounded-lg bg-muted/30 border border-dashed border-muted p-1"
-                          >
-                            <span className="text-xs font-medium text-muted-foreground/70">Break</span>
+                          <div key={`${day}-${timeSlot}`} className="flex items-center justify-center rounded-lg bg-muted/30 border border-dashed border-muted p-1">
+                            <span className="text-xs font-medium text-muted-foreground/70 rotate-0">
+                              Break
+                            </span>
                           </div>
                         );
                         continue;
                       }
 
+                      // Find schedule starting at this slot
                       const daySchedules = schedulesByDay[day] || [];
-                      const startingSchedule = daySchedules.find((s) => {
+                      const startingSchedule = daySchedules.find(s => {
                         const scheduleMinutes = getMinutes(s.start_time);
                         const slotMinutes = getMinutes(timeSlot);
-                        return Math.abs(scheduleMinutes - slotMinutes) <= 5;
+                        return Math.abs(scheduleMinutes - slotMinutes) < 10;
                       });
 
                       if (startingSchedule) {
-                        const duration =
-                          getMinutes(startingSchedule.end_time) - getMinutes(startingSchedule.start_time);
-                        const span = Math.max(1, Math.ceil(duration / 30));
+                        const duration = getMinutes(startingSchedule.end_time) - getMinutes(startingSchedule.start_time);
+                        const span = Math.max(1, Math.ceil(duration / 50));
 
+                        // Just render the single schedule card for this slot
                         cells.push(
                           <div
                             key={`${day}-${timeSlot}`}
@@ -198,9 +174,8 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
                           >
                             <div
                               key={startingSchedule.id}
-                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${
-                                classColorMap[startingSchedule.class_id]
-                              }`}
+                              className={`w-full h-full rounded-md border p-2 text-xs flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity ${classColorMap[startingSchedule.class_id]
+                                }`}
                             >
                               <div>
                                 <div className="font-semibold truncate leading-tight">
@@ -228,15 +203,12 @@ export function WeeklyTimetable({ schedules, isLoading }: WeeklyTimetableProps) 
 
                         skipCount = span - 1;
                       } else {
+                        // Empty slot
                         cells.push(
-                          <div
-                            key={`${day}-${timeSlot}`}
-                            className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1 opacity-50"
-                          />
+                          <div key={`${day}-${timeSlot}`} className="relative border rounded-lg border-dashed border-border/50 bg-card/50 p-1 opacity-50"></div>
                         );
                       }
                     }
-
                     return cells;
                   })()}
                 </div>
