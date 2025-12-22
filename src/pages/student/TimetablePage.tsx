@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WeeklyTimetable } from '@/components/student/WeeklyTimetable';
 import { GoogleCalendarSync } from '@/components/calendar/GoogleCalendarSync';
@@ -14,68 +14,102 @@ export default function TimetablePage() {
   const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [todayClasses, setTodayClasses] = useState<ClassSchedule[]>([]);
+  const [enrolledClassIds, setEnrolledClassIds] = useState<string[]>([]);
+
+  const fetchStudentSchedules = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Get enrolled classes
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('class_enrollments')
+        .select('class_id')
+        .eq('student_id', user.id);
+
+      if (enrollError) throw enrollError;
+
+      if (!enrollments || enrollments.length === 0) {
+        setSchedules([]);
+        setEnrolledClassIds([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const classIds = enrollments.map(e => e.class_id);
+      setEnrolledClassIds(classIds);
+
+      // Get schedules for enrolled classes
+      const { data: scheduleData, error: scheduleError } = await supabase
+        .from('class_schedules')
+        .select(`
+          id,
+          class_id,
+          day,
+          start_time,
+          end_time,
+          classes (
+            id,
+            subject,
+            code,
+            room,
+            department
+          )
+        `)
+        .in('class_id', classIds)
+        .order('start_time');
+
+      if (scheduleError) throw scheduleError;
+
+      setSchedules(scheduleData as ClassSchedule[] || []);
+
+      // Get today's classes
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const today = days[new Date().getDay()];
+      const todaysSchedules = (scheduleData as ClassSchedule[] || []).filter(
+        s => s.day.toLowerCase() === today
+      );
+      setTodayClasses(todaysSchedules);
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    const fetchStudentSchedules = async () => {
-      if (!user) return;
-
-      try {
-        // Get enrolled classes
-        const { data: enrollments, error: enrollError } = await supabase
-          .from('class_enrollments')
-          .select('class_id')
-          .eq('student_id', user.id);
-
-        if (enrollError) throw enrollError;
-
-        if (!enrollments || enrollments.length === 0) {
-          setSchedules([]);
-          setIsLoading(false);
-          return;
-        }
-
-        const classIds = enrollments.map(e => e.class_id);
-
-        // Get schedules for enrolled classes
-        const { data: scheduleData, error: scheduleError } = await supabase
-          .from('class_schedules')
-          .select(`
-            id,
-            class_id,
-            day,
-            start_time,
-            end_time,
-            classes (
-              id,
-              subject,
-              code,
-              room,
-              department
-            )
-          `)
-          .in('class_id', classIds)
-          .order('start_time');
-
-        if (scheduleError) throw scheduleError;
-
-        setSchedules(scheduleData as ClassSchedule[] || []);
-
-        // Get today's classes
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const today = days[new Date().getDay()];
-        const todaysSchedules = (scheduleData as ClassSchedule[] || []).filter(
-          s => s.day.toLowerCase() === today
-        );
-        setTodayClasses(todaysSchedules);
-      } catch (error) {
-        console.error('Error fetching schedules:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchStudentSchedules();
-  }, [user]);
+  }, [fetchStudentSchedules]);
+
+  // Real-time subscription for schedule changes
+  useEffect(() => {
+    if (!user || enrolledClassIds.length === 0) return;
+
+    const channel = supabase
+      .channel('student-schedules')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'class_schedules',
+        },
+        (payload) => {
+          const record = payload.new as ClassSchedule | null;
+          
+          // Only react to changes for enrolled classes
+          if (record && enrolledClassIds.includes(record.class_id)) {
+            fetchStudentSchedules(); // Refetch to get full data with joins
+          } else if (payload.eventType === 'DELETE') {
+            fetchStudentSchedules(); // Refetch on delete
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, enrolledClassIds, fetchStudentSchedules]);
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
