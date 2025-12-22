@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.auto-end-sessions]
 verify_jwt = false
+
+[functions.class-management]
+verify_jwt = true

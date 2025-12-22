@@ -8,6 +8,11 @@ export interface ClassSchedule {
   day: string;
   start_time: string;
   end_time: string;
+  status: 'scheduled' | 'cancelled' | 'rescheduled';
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  rescheduled_to_id?: string | null;
+  original_schedule_id?: string | null;
   classes?: {
     id: string;
     subject: string;
@@ -35,6 +40,11 @@ export function useClassSchedules(classId?: string) {
           day,
           start_time,
           end_time,
+          status,
+          cancelled_at,
+          cancel_reason,
+          rescheduled_to_id,
+          original_schedule_id,
           classes (
             id,
             subject,
@@ -62,7 +72,7 @@ export function useClassSchedules(classId?: string) {
     }
   };
 
-  const addSchedule = async (schedule: Omit<ClassSchedule, 'id' | 'classes'>) => {
+  const addSchedule = async (schedule: Omit<ClassSchedule, 'id' | 'classes' | 'status' | 'cancelled_at' | 'cancel_reason' | 'rescheduled_to_id' | 'original_schedule_id'>) => {
     const { data, error: insertError } = await supabase
       .from('class_schedules')
       .insert(schedule)
@@ -72,6 +82,11 @@ export function useClassSchedules(classId?: string) {
         day,
         start_time,
         end_time,
+        status,
+        cancelled_at,
+        cancel_reason,
+        rescheduled_to_id,
+        original_schedule_id,
         classes (
           id,
           subject,
@@ -99,6 +114,30 @@ export function useClassSchedules(classId?: string) {
 
   useEffect(() => {
     fetchSchedules();
+  }, [user, classId]);
+
+  // Set up realtime subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('class-schedules-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'class_schedules',
+        },
+        () => {
+          fetchSchedules();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, classId]);
 
   return {
